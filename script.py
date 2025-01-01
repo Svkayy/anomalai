@@ -182,6 +182,8 @@ class PointSelector:
         event,
         x,
         y,
+        _flags,
+        _param,
     ):
         if len(self.points) >= self.max_points:
             print(
@@ -275,7 +277,7 @@ def main():
         )
 
         # Set to the path of the image you want to process
-        image_path = "./cat.png"
+        image_path = "./potplants.png"
 
         point_selector = PointSelector(image_path, max_points=2)
         points = point_selector.select_points()
