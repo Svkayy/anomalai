@@ -1,4 +1,4 @@
-# Segment Anything 2 - Core ML with Python
+# Segment Anything 2 - Core ML
 
 Run Segment Anything 2 (SAM 2) on macOS using Core ML models.
 
