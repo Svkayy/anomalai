@@ -186,9 +186,11 @@ class PointSelector:
         _param,
     ):
         if len(self.points) >= self.max_points:
-            print(
-                "Maximum number of points (2) reached. Press ENTER to continue or 'c' to clear."
-            )
+            if not hasattr(self, "max_points_reached"):
+                print(
+                    "Maximum number of points (2) reached. Press ENTER to continue or 'c' to clear."
+                )
+                self.max_points_reached = True
             return
 
         if event == cv2.EVENT_LBUTTONDOWN:  # Left click for foreground
@@ -206,6 +208,10 @@ class PointSelector:
             print(
                 f"Added background point at ({x}, {y}). {points_left} point{'s' if points_left != 1 else ''} remaining."
             )
+
+        # Reset the flag if points are cleared
+        if len(self.points) < self.max_points and hasattr(self, "max_points_reached"):
+            delattr(self, "max_points_reached")
 
     def _update_display(self):
         self.display_image = self.image.copy()
