@@ -21,7 +21,7 @@ class SAM2:
         self.mask_decoder = None
         self.image_embeddings = None
         self.prompt_embeddings = None
-        self.input_size = (1024, 1024)  # Fixed size that the model seems to expect
+        self.input_size = (1024, 1024)  # Fixed size that the model expects
         self.original_image_size = None
 
     def load_models(
@@ -69,32 +69,40 @@ class SAM2:
 
     def transform_points(
         self, points: List[Point], original_size: Tuple[int, int]
-    ) -> np.ndarray:
-        """Transform point coordinates to match model input size."""
-        transformed_points = []
-        for point in points:
-            # Simple scaling to match the resized image dimensions
-            transformed_x = point.x * (self.input_size[0] / original_size[0])
-            transformed_y = point.y * (self.input_size[1] / original_size[1])
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Transform point coordinates to match model input size and prepare arrays."""
+        if len(points) != 2:
+            raise ValueError("Exactly 2 points are required for this model")
 
-            transformed_points.append([transformed_x, transformed_y])
+        # Initialize arrays with the correct shape
+        coords_array = np.zeros((1, 2, 2), dtype=np.float32)  # Shape: (1, 2, 2)
+        labels_array = np.zeros((1, 2), dtype=np.int32)  # Shape: (1, 2)
 
-        return np.array(transformed_points)
+        # Transform both points
+        for i, point in enumerate(points):
+            # Scale coordinates to match the resized image dimensions
+            x = point.x * (self.input_size[0] / original_size[0])
+            y = point.y * (self.input_size[1] / original_size[1])
+
+            coords_array[0, i] = [x, y]
+            labels_array[0, i] = point.label
+
+        return coords_array, labels_array
 
     def get_prompt_embedding(self, points: List[Point], original_size: Tuple[int, int]):
         """Get prompt embeddings using the prompt encoder."""
         if self.prompt_encoder is None:
             raise ValueError("Models not loaded. Call load_models first.")
 
+        if len(points) != 2:
+            raise ValueError("Exactly 2 points are required for this model")
+
         start_time = time.time()
 
-        # Transform points to match model input size
-        transformed_points = self.transform_points(points, original_size)
+        # Transform points and get properly shaped arrays
+        points_array, labels_array = self.transform_points(points, original_size)
 
-        # Prepare inputs for prompt encoder
-        points_array = transformed_points.reshape(1, -1, 2).astype(np.float32)
-        labels_array = np.array([[p.label for p in points]], dtype=np.int32)
-
+        # Get prompt embeddings
         self.prompt_embeddings = self.prompt_encoder.predict(
             {"points": points_array, "labels": labels_array}
         )
@@ -115,35 +123,42 @@ class SAM2:
 
         start_time = time.time()
 
-        # Get mask prediction
-        mask_output = self.mask_decoder.predict(
-            {
-                "image_embedding": self.image_embeddings["image_embedding"],
-                "sparse_embedding": self.prompt_embeddings["sparse_embeddings"],
-                "dense_embedding": self.prompt_embeddings["dense_embeddings"],
-                "feats_s0": self.image_embeddings["feats_s0"],
-                "feats_s1": self.image_embeddings["feats_s1"],
-            }
-        )
+        try:
+            # Get mask prediction
+            mask_output = self.mask_decoder.predict(
+                {
+                    "image_embedding": self.image_embeddings["image_embedding"],
+                    "sparse_embedding": self.prompt_embeddings["sparse_embeddings"],
+                    "dense_embedding": self.prompt_embeddings["dense_embeddings"],
+                    "feats_s0": self.image_embeddings["feats_s0"],
+                    "feats_s1": self.image_embeddings["feats_s1"],
+                }
+            )
 
-        # Get best mask (highest score)
-        scores = mask_output["scores"]
-        print(f"Scores: {scores}")
-        best_mask_idx = np.argmax(scores)
-        mask = mask_output["low_res_masks"][0, best_mask_idx]
+            # Get best mask (highest score)
+            scores = mask_output["scores"]
+            print(f"Mask scores: {scores}")
+            best_mask_idx = np.argmax(scores)
+            mask = mask_output["low_res_masks"][0, best_mask_idx]
 
-        # Resize mask to original image size
-        mask = cv2.resize(
-            mask, (original_size[0], original_size[1]), interpolation=cv2.INTER_LINEAR
-        )
+            # Resize mask to original image size
+            mask = cv2.resize(
+                mask,
+                (original_size[0], original_size[1]),
+                interpolation=cv2.INTER_LINEAR,
+            )
 
-        # Apply threshold
-        mask = (mask > 0).astype(np.float32)
+            # Apply threshold
+            mask = (mask > 0).astype(np.float32)
 
-        duration = time.time() - start_time
-        print(f"Mask generation took: {duration:.2f} seconds")
+            duration = time.time() - start_time
+            print(f"Mask generation took: {duration:.2f} seconds")
 
-        return mask
+            return mask
+
+        except Exception as e:
+            print(f"Error generating mask: {str(e)}")
+            return None
 
     def save_mask(self, mask: np.ndarray, output_path: str):
         """Save the mask as a PNG file."""
@@ -151,32 +166,138 @@ class SAM2:
         cv2.imwrite(output_path, mask_image)
 
 
+class PointSelector:
+    def __init__(self, image_path, max_points=2):
+        self.image = cv2.imread(image_path)
+        if self.image is None:
+            raise ValueError(f"Could not load image at {image_path}")
+
+        self.display_image = self.image.copy()
+        self.points = []
+        self.window_name = "Point Selection"
+        self.max_points = max_points
+
+    def mouse_callback(
+        self,
+        event,
+        x,
+        y,
+    ):
+        if len(self.points) >= self.max_points:
+            print(
+                "Maximum number of points (2) reached. Press ENTER to continue or 'c' to clear."
+            )
+            return
+
+        if event == cv2.EVENT_LBUTTONDOWN:  # Left click for foreground
+            self.points.append(Point(x=float(x), y=float(y), label=1))
+            self._update_display()
+            points_left = self.max_points - len(self.points)
+            print(
+                f"Added foreground point at ({x}, {y}). {points_left} point{'s' if points_left != 1 else ''} remaining."
+            )
+
+        elif event == cv2.EVENT_RBUTTONDOWN:  # Right click for background
+            self.points.append(Point(x=float(x), y=float(y), label=0))
+            self._update_display()
+            points_left = self.max_points - len(self.points)
+            print(
+                f"Added background point at ({x}, {y}). {points_left} point{'s' if points_left != 1 else ''} remaining."
+            )
+
+    def _update_display(self):
+        self.display_image = self.image.copy()
+
+        # Draw all points
+        for point in self.points:
+            color = (
+                (0, 255, 0) if point.label == 1 else (0, 0, 255)
+            )  # Green for foreground, Red for background
+            cv2.circle(self.display_image, (int(point.x), int(point.y)), 5, color, -1)
+
+        # Add point count to display
+        points_left = self.max_points - len(self.points)
+        text = f"Points remaining: {points_left}"
+        cv2.putText(
+            self.display_image,
+            text,
+            (10, 30),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (255, 255, 255),
+            2,
+        )
+
+        cv2.imshow(self.window_name, self.display_image)
+
+    def select_points(self):
+        cv2.namedWindow(self.window_name)
+        cv2.setMouseCallback(self.window_name, self.mouse_callback)
+
+        cv2.imshow(self.window_name, self.image)
+
+        print("Instructions (Exactly 2 points required):")
+        print("- Left click to add foreground point (green)")
+        print("- Right click to add background point (red)")
+        print("- Press 'c' to clear points")
+        print("- Press ENTER when you have added exactly 2 points")
+        print("- Press ESC to cancel")
+
+        while True:
+            key = cv2.waitKey(1) & 0xFF
+
+            if key == 13:  # Enter key
+                if len(self.points) != 2:
+                    print("Please select exactly 2 points before continuing.")
+                    continue
+                break
+            elif key == 27:  # Escape key
+                self.points = []
+                break
+            elif key == ord("c"):  # Clear points
+                self.points = []
+                self._update_display()
+                print("Cleared all points. Please select exactly 2 points.")
+
+        cv2.destroyAllWindows()
+        return self.points
+
+
 def main():
-    sam = SAM2()
+    try:
+        sam = SAM2()
 
-    # Set to the paths of the CoreML models
-    sam.load_models(
-        image_encoder_path="./models/SAM2_1SmallImageEncoderFLOAT16.mlpackage",
-        prompt_encoder_path="./models/SAM2_1SmallPromptEncoderFLOAT16.mlpackage",
-        mask_decoder_path="./models/SAM2_1SmallMaskDecoderFLOAT16.mlpackage",
-    )
+        # Set to the paths of the CoreML models
+        sam.load_models(
+            image_encoder_path="./models/SAM2_1SmallImageEncoderFLOAT16.mlpackage",
+            prompt_encoder_path="./models/SAM2_1SmallPromptEncoderFLOAT16.mlpackage",
+            mask_decoder_path="./models/SAM2_1SmallMaskDecoderFLOAT16.mlpackage",
+        )
 
-    # Set to the path of the image you want to process
-    image_path = "./cat.png"
+        # Set to the path of the image you want to process
+        image_path = "./cat.png"
 
-    sam.get_image_embedding(image_path)
+        point_selector = PointSelector(image_path, max_points=2)
+        points = point_selector.select_points()
 
-    # Define points (example: one foreground point)
-    points = [Point(x=100, y=100, label=1)]  # Coordinates in original image space
+        if len(points) != 2:
+            print("Exactly 2 points are required. Exiting.")
+            return
 
-    original_size = Image.open(image_path).size
+        print(f"Selected {len(points)} points")
 
-    sam.prompt_embeddings = sam.get_prompt_embedding(points, original_size)
+        sam.get_image_embedding(image_path)
+        original_size = Image.open(image_path).size
+        sam.prompt_embeddings = sam.get_prompt_embedding(points, original_size)
+        mask = sam.get_mask(original_size)
 
-    mask = sam.get_mask(original_size)
+        if mask is not None:
+            sam.save_mask(mask, "output_mask.png")
+            cv2.destroyAllWindows()
 
-    if mask is not None:
-        sam.save_mask(mask, "output_mask.png")
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+        cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
