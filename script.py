@@ -165,6 +165,20 @@ class SAM2:
         mask_image = (mask * 255).astype(np.uint8)
         cv2.imwrite(output_path, mask_image)
 
+    def apply_mask_to_image(self, image_path, mask):
+        image = cv2.imread(image_path)
+        mask_binary = mask.astype(np.uint8) * 255
+        segmented = cv2.bitwise_and(image, image, mask=mask_binary)
+
+        # Create white background for transparency
+        white_background = np.ones_like(image) * 255
+        background = cv2.bitwise_and(
+            white_background, white_background, mask=~mask_binary
+        )
+        # Combine segmented image with white background
+        final_image = cv2.add(segmented, background)
+        return final_image
+
 
 class PointSelector:
     def __init__(self, image_path, max_points=2):
@@ -300,7 +314,13 @@ def main():
         mask = sam.get_mask(original_size)
 
         if mask is not None:
+            # Save the mask
             sam.save_mask(mask, "output_mask.png")
+
+            # Save segmented image
+            segmented_image = sam.apply_mask_to_image(image_path, mask)
+            cv2.imwrite("output_segmented.png", segmented_image)
+
             cv2.destroyAllWindows()
 
     except Exception as e:

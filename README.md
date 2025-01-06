@@ -34,7 +34,7 @@ sam2-coreml-python/
 python script.py
 ```
 
-The script will generate `output_mask.png` containing the segmentation mask.
+The script will generate `output_mask.png` containing the segmentation mask and `output_segmented.png` containing the segmented image.
 
 ## Models
 
