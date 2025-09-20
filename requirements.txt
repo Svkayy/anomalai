@@ -6,4 +6,5 @@ numpy==1.24.3
 pytesseract==0.3.10
 psutil==5.9.6
 transformers==4.35.0
-torch==2.0.1 
+torch==2.0.1
+clip-by-openai==1.0 

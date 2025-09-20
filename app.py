@@ -27,6 +27,11 @@ sam_model = None
 # Initialize depth estimation pipeline (global variable)
 depth_pipe = None
 
+# Initialize CLIP model for classification (global variables)
+clip_model = None
+clip_preprocess = None
+clip_device = None
+
 # Parallel processing configuration
 parallel_config = {
     'max_workers': 4,
@@ -62,6 +67,18 @@ def initialize_depth():
         print(f"Error loading depth pipeline: {e}")
         return False
 
+def initialize_clip():
+    """Initialize the CLIP model for classification"""
+    global clip_model, clip_preprocess, clip_device
+    try:
+        clip_device = "cuda" if torch.cuda.is_available() else "cpu"
+        clip_model, clip_preprocess = clip.load("ViT-B/32", device=clip_device)
+        print(f"CLIP model loaded successfully on {clip_device}")
+        return True
+    except Exception as e:
+        print(f"Error loading CLIP model: {e}")
+        return False
+
 
 import math
 import concurrent.futures
@@ -69,6 +86,8 @@ from functools import partial
 import psutil
 import gc
 from transformers import pipeline
+import torch
+import clip
 
 def mask_to_box(mask: np.ndarray):
     ys, xs = np.where(mask > 0)
@@ -102,29 +121,51 @@ def mask_iou(a_mask: np.ndarray, b_mask: np.ndarray):
     union = np.count_nonzero(a | b)
     return (inter / union) if union > 0 else 0.0
 
-# def classify_mask(image_path, mask, labels, text_features):
-#     """Classify a SAM mask using CLIP against label vocabulary."""
-#     image = Image.open(image_path).convert("RGB")
-#     np_img = np.array(image)
+def prepare_text_features(labels):
+    """Prepare text features for CLIP classification."""
+    if clip_model is None:
+        return None
+        
+    try:
+        text_tokens = clip.tokenize(labels).to(clip_device)
+        with torch.no_grad():
+            text_features = clip_model.encode_text(text_tokens)
+            text_features /= text_features.norm(dim=-1, keepdim=True)
+        return text_features
+    except Exception as e:
+        print(f"Error preparing text features: {e}")
+        return None
 
-#     # Apply mask
-#     masked = np.zeros_like(np_img)
-#     masked[mask > 0] = np_img[mask > 0]
-#     pil_patch = Image.fromarray(masked)
+def classify_mask(image_path, mask, labels, text_features):
+    """Classify a SAM mask using CLIP against label vocabulary."""
+    if clip_model is None or clip_preprocess is None or text_features is None:
+        return "unknown", 0.0
+        
+    try:
+        image = Image.open(image_path).convert("RGB")
+        np_img = np.array(image)
 
-#     # Preprocess for CLIP
-#     patch = clip_preprocess(pil_patch).unsqueeze(0).to(device)
+        # Apply mask
+        masked = np.zeros_like(np_img)
+        masked[mask > 0] = np_img[mask > 0]
+        pil_patch = Image.fromarray(masked)
 
-#     with torch.no_grad():
-#         image_features = clip_model.encode_image(patch)
-#         image_features /= image_features.norm(dim=-1, keepdim=True)
+        # Preprocess for CLIP
+        patch = clip_preprocess(pil_patch).unsqueeze(0).to(clip_device)
 
-#         # Similarity with all text labels
-#         sims = (100.0 * image_features @ text_features.T).softmax(dim=-1)
-#         label_idx = sims.argmax().item()
-#         confidence = sims[0][label_idx].item()
+        with torch.no_grad():
+            image_features = clip_model.encode_image(patch)
+            image_features /= image_features.norm(dim=-1, keepdim=True)
 
-#     return labels[label_idx], confidence
+            # Similarity with all text labels
+            sims = (100.0 * image_features @ text_features.T).softmax(dim=-1)
+            label_idx = sims.argmax().item()
+            confidence = sims[0][label_idx].item()
+
+        return labels[label_idx], confidence
+    except Exception as e:
+        print(f"Error classifying mask: {e}")
+        return "unknown", 0.0
 
 
 def remove_small_regions(mask: np.ndarray, min_region_area: int = 0):
@@ -563,10 +604,38 @@ def segment_image():
                 batch_size=parallel_config['batch_size']
             )
             
-            # mask_labels = []
-            # for mask in kept_masks:
-            #     label, score = classify_mask(filepath, mask, LABELS, text_features)
-            #     mask_labels.append({"label": label, "confidence": score})
+            # Classify masks using CLIP
+            mask_labels = []
+            if clip_model is not None and len(kept_masks) > 0:
+                # Define common object labels for classification
+                LABELS = [
+                    "person", "car", "truck", "bus", "motorcycle", "bicycle",
+                    "dog", "cat", "bird", "horse", "cow", "sheep",
+                    "tree", "grass", "sky", "water", "road", "building",
+                    "house", "window", "door", "fence", "sign", "traffic light",
+                    "chair", "table", "bed", "sofa", "lamp", "book",
+                    "phone", "laptop", "keyboard", "mouse", "monitor", "television",
+                    "bottle", "cup", "bowl", "plate", "fork", "knife", "spoon",
+                    "banana", "apple", "orange", "broccoli", "carrot", "pizza",
+                    "donut", "cake", "sandwich", "hot dog", "hamburger", "french fries"
+                ]
+                
+                # Prepare text features once
+                text_features = prepare_text_features(LABELS)
+                
+                if text_features is not None:
+                    print(f"Classifying {len(kept_masks)} masks...")
+                    for i, mask in enumerate(kept_masks):
+                        label, confidence = classify_mask(filepath, mask, LABELS, text_features)
+                        mask_labels.append({
+                            "label": label, 
+                            "confidence": round(confidence, 3),
+                            "mask_index": i
+                        })
+                        if i % 10 == 0:
+                            print(f"Classified {i+1}/{len(kept_masks)} masks")
+            else:
+                print("CLIP model not available, skipping classification")
 
             # Create visualization
             final_image = np.zeros((H, W, 4), dtype=np.uint8)
@@ -606,7 +675,7 @@ def segment_image():
                 'success': True,
                 'segmented_image': img_base64,
                 'mask_count': int(len(kept_masks)),
-                # 'labels': mask_labels
+                'labels': mask_labels
             })
         else:
             return jsonify({'error': 'Invalid prompt type'}), 400
@@ -951,10 +1020,15 @@ if __name__ == '__main__':
     # Initialize depth estimation pipeline
     depth_loaded = initialize_depth()
     
+    # Initialize CLIP model for classification
+    clip_loaded = initialize_clip()
+    
     if sam_loaded and depth_loaded:
         app.run(debug=True, host='0.0.0.0', port=5000)
     else:
         if not sam_loaded:
             print("Failed to initialize SAM2 model. Please check model paths.")
         if not depth_loaded:
-            print("Failed to initialize depth estimation pipeline. Please check transformers installation.") 
+            print("Failed to initialize depth estimation pipeline. Please check transformers installation.")
+        if not clip_loaded:
+            print("Failed to initialize CLIP model. Classification will be disabled.") 

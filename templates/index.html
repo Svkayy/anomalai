@@ -267,6 +267,84 @@
             border-radius: 5px;
             padding: 15px;
             margin: 15px 0;
+        }
+        
+        /* Labels Display Styles */
+        .labels-container {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 15px;
+        }
+        
+        .labels-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .label-item {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+        
+        .label-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transform: translateY(-1px);
+        }
+        
+        .label-name {
+            font-weight: 600;
+            color: #333;
+            text-transform: capitalize;
+        }
+        
+        .label-confidence {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+        
+        .label-confidence.high {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+        
+        .label-confidence.medium {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+        
+        .label-confidence.low {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+        
+        .labels-summary {
+            text-align: center;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 5px;
+            font-weight: 500;
+            color: #495057;
+        }
+        
+        .no-labels {
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            padding: 20px;
             font-family: 'Courier New', monospace;
             white-space: pre-wrap;
             max-height: 300px;
@@ -437,6 +515,15 @@
                     <h3>Segmented Result</h3>
                     <div class="canvas-container">
                         <canvas id="resultCanvas"></canvas>
+                    </div>
+                </div>
+                <div class="image-section" id="labelsSection" style="display: none;">
+                    <h3>Detected Objects</h3>
+                    <div class="labels-container">
+                        <div id="labelsList" class="labels-list"></div>
+                        <div class="labels-summary">
+                            <span id="labelsCount">0 objects detected</span>
+                        </div>
                     </div>
                 </div>
                 <div class="image-section">
@@ -882,6 +969,7 @@
             }
             
             updateSegmentButton();
+            hideLabels();
         }
 
         function resetApp() {
@@ -895,6 +983,7 @@
             document.getElementById('instructions').style.display = 'none';
             document.getElementById('downloadSection').style.display = 'none';
             document.getElementById('fileInput').value = '';
+            hideLabels();
         }
 
         function segmentImage() {
@@ -985,6 +1074,12 @@
                         // Show download button for grid segmentation
                         showDownloadButton();
                     }
+                    // Display labels if available (only for grid segmentation)
+                    if (selectionMode === 'grid' && data.labels && data.labels.length > 0) {
+                        displayLabels(data.labels);
+                    } else {
+                        hideLabels();
+                    }
                 } else {
                     showError(data.error || 'Processing failed');
                 }
@@ -1022,6 +1117,64 @@
         function showDownloadButton() {
             const downloadSection = document.getElementById('downloadSection');
             downloadSection.style.display = 'block';
+        }
+
+        function displayLabels(labels) {
+            const labelsSection = document.getElementById('labelsSection');
+            const labelsList = document.getElementById('labelsList');
+            const labelsCount = document.getElementById('labelsCount');
+            
+            // Show the labels section
+            labelsSection.style.display = 'block';
+            
+            // Update count
+            labelsCount.textContent = `${labels.length} objects detected`;
+            
+            // Clear previous labels
+            labelsList.innerHTML = '';
+            
+            if (labels.length === 0) {
+                const noLabels = document.createElement('div');
+                noLabels.className = 'no-labels';
+                noLabels.textContent = 'No objects detected or CLIP model not available';
+                labelsList.appendChild(noLabels);
+                return;
+            }
+            
+            // Sort labels by confidence (highest first)
+            const sortedLabels = labels.sort((a, b) => b.confidence - a.confidence);
+            
+            // Create label items
+            sortedLabels.forEach((labelInfo, index) => {
+                const labelItem = document.createElement('div');
+                labelItem.className = 'label-item';
+                
+                const labelName = document.createElement('div');
+                labelName.className = 'label-name';
+                labelName.textContent = labelInfo.label;
+                
+                const confidence = document.createElement('div');
+                confidence.className = 'label-confidence';
+                confidence.textContent = `${(labelInfo.confidence * 100).toFixed(1)}%`;
+                
+                // Add confidence level class
+                if (labelInfo.confidence >= 0.7) {
+                    confidence.classList.add('high');
+                } else if (labelInfo.confidence >= 0.4) {
+                    confidence.classList.add('medium');
+                } else {
+                    confidence.classList.add('low');
+                }
+                
+                labelItem.appendChild(labelName);
+                labelItem.appendChild(confidence);
+                labelsList.appendChild(labelItem);
+            });
+        }
+
+        function hideLabels() {
+            const labelsSection = document.getElementById('labelsSection');
+            labelsSection.style.display = 'none';
         }
 
         function downloadPSDs() {

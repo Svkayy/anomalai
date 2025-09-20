@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Labels Display Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .labels-container {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 15px;
+        }
+        
+        .labels-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .label-item {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+        
+        .label-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transform: translateY(-1px);
+        }
+        
+        .label-name {
+            font-weight: 600;
+            color: #333;
+            text-transform: capitalize;
+        }
+        
+        .label-confidence {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+        
+        .label-confidence.high {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+        
+        .label-confidence.medium {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+        
+        .label-confidence.low {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+        
+        .labels-summary {
+            text-align: center;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 5px;
+            font-weight: 500;
+            color: #495057;
+        }
+        
+        .test-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        
+        .test-button:hover {
+            background: #5a6fd8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Labels Display Test</h1>
+        <p>This page tests the labels display functionality for the SAM2 segmentation interface.</p>
+        
+        <button class="test-button" onclick="testLabels()">Test with Sample Labels</button>
+        <button class="test-button" onclick="testEmptyLabels()">Test Empty Labels</button>
+        <button class="test-button" onclick="hideLabels()">Hide Labels</button>
+        
+        <div class="image-section" id="labelsSection" style="display: none;">
+            <h3>Detected Objects</h3>
+            <div class="labels-container">
+                <div id="labelsList" class="labels-list"></div>
+                <div class="labels-summary">
+                    <span id="labelsCount">0 objects detected</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function displayLabels(labels) {
+            const labelsSection = document.getElementById('labelsSection');
+            const labelsList = document.getElementById('labelsList');
+            const labelsCount = document.getElementById('labelsCount');
+            
+            // Show the labels section
+            labelsSection.style.display = 'block';
+            
+            // Update count
+            labelsCount.textContent = `${labels.length} objects detected`;
+            
+            // Clear previous labels
+            labelsList.innerHTML = '';
+            
+            if (labels.length === 0) {
+                const noLabels = document.createElement('div');
+                noLabels.className = 'no-labels';
+                noLabels.textContent = 'No objects detected or CLIP model not available';
+                labelsList.appendChild(noLabels);
+                return;
+            }
+            
+            // Sort labels by confidence (highest first)
+            const sortedLabels = labels.sort((a, b) => b.confidence - a.confidence);
+            
+            // Create label items
+            sortedLabels.forEach((labelInfo, index) => {
+                const labelItem = document.createElement('div');
+                labelItem.className = 'label-item';
+                
+                const labelName = document.createElement('div');
+                labelName.className = 'label-name';
+                labelName.textContent = labelInfo.label;
+                
+                const confidence = document.createElement('div');
+                confidence.className = 'label-confidence';
+                confidence.textContent = `${(labelInfo.confidence * 100).toFixed(1)}%`;
+                
+                // Add confidence level class
+                if (labelInfo.confidence >= 0.7) {
+                    confidence.classList.add('high');
+                } else if (labelInfo.confidence >= 0.4) {
+                    confidence.classList.add('medium');
+                } else {
+                    confidence.classList.add('low');
+                }
+                
+                labelItem.appendChild(labelName);
+                labelItem.appendChild(confidence);
+                labelsList.appendChild(labelItem);
+            });
+        }
+
+        function hideLabels() {
+            const labelsSection = document.getElementById('labelsSection');
+            labelsSection.style.display = 'none';
+        }
+
+        function testLabels() {
+            const sampleLabels = [
+                { label: "person", confidence: 0.892, mask_index: 0 },
+                { label: "car", confidence: 0.756, mask_index: 1 },
+                { label: "tree", confidence: 0.634, mask_index: 2 },
+                { label: "building", confidence: 0.587, mask_index: 3 },
+                { label: "sky", confidence: 0.523, mask_index: 4 },
+                { label: "road", confidence: 0.456, mask_index: 5 },
+                { label: "grass", confidence: 0.423, mask_index: 6 },
+                { label: "window", confidence: 0.389, mask_index: 7 },
+                { label: "door", confidence: 0.345, mask_index: 8 },
+                { label: "fence", confidence: 0.298, mask_index: 9 }
+            ];
+            displayLabels(sampleLabels);
+        }
+
+        function testEmptyLabels() {
+            displayLabels([]);
+        }
+    </script>
+</body>
+</html>
