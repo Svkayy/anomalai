@@ -62,21 +62,6 @@ def initialize_depth():
         print(f"Error loading depth pipeline: {e}")
         return False
 
-import torch
-import clip
-
-# --- MaskCLIP setup ---
-LABELS = ["sky", "tree", "road", "grass", "water", "building", "mountain", "cloud"]
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
-clip_model, clip_preprocess = clip.load("ViT-B/32", device=device)
-
-# Precompute label embeddings
-text_tokens = clip.tokenize(LABELS).to(device)
-with torch.no_grad():
-    text_features = clip_model.encode_text(text_tokens)
-    text_features /= text_features.norm(dim=-1, keepdim=True)
-
 
 import math
 import concurrent.futures
@@ -117,29 +102,29 @@ def mask_iou(a_mask: np.ndarray, b_mask: np.ndarray):
     union = np.count_nonzero(a | b)
     return (inter / union) if union > 0 else 0.0
 
-def classify_mask(image_path, mask, labels, text_features):
-    """Classify a SAM mask using CLIP against label vocabulary."""
-    image = Image.open(image_path).convert("RGB")
-    np_img = np.array(image)
+# def classify_mask(image_path, mask, labels, text_features):
+#     """Classify a SAM mask using CLIP against label vocabulary."""
+#     image = Image.open(image_path).convert("RGB")
+#     np_img = np.array(image)
 
-    # Apply mask
-    masked = np.zeros_like(np_img)
-    masked[mask > 0] = np_img[mask > 0]
-    pil_patch = Image.fromarray(masked)
+#     # Apply mask
+#     masked = np.zeros_like(np_img)
+#     masked[mask > 0] = np_img[mask > 0]
+#     pil_patch = Image.fromarray(masked)
 
-    # Preprocess for CLIP
-    patch = clip_preprocess(pil_patch).unsqueeze(0).to(device)
+#     # Preprocess for CLIP
+#     patch = clip_preprocess(pil_patch).unsqueeze(0).to(device)
 
-    with torch.no_grad():
-        image_features = clip_model.encode_image(patch)
-        image_features /= image_features.norm(dim=-1, keepdim=True)
+#     with torch.no_grad():
+#         image_features = clip_model.encode_image(patch)
+#         image_features /= image_features.norm(dim=-1, keepdim=True)
 
-        # Similarity with all text labels
-        sims = (100.0 * image_features @ text_features.T).softmax(dim=-1)
-        label_idx = sims.argmax().item()
-        confidence = sims[0][label_idx].item()
+#         # Similarity with all text labels
+#         sims = (100.0 * image_features @ text_features.T).softmax(dim=-1)
+#         label_idx = sims.argmax().item()
+#         confidence = sims[0][label_idx].item()
 
-    return labels[label_idx], confidence
+#     return labels[label_idx], confidence
 
 
 def remove_small_regions(mask: np.ndarray, min_region_area: int = 0):
@@ -578,10 +563,10 @@ def segment_image():
                 batch_size=parallel_config['batch_size']
             )
             
-            mask_labels = []
-            for mask in kept_masks:
-                label, score = classify_mask(filepath, mask, LABELS, text_features)
-                mask_labels.append({"label": label, "confidence": score})
+            # mask_labels = []
+            # for mask in kept_masks:
+            #     label, score = classify_mask(filepath, mask, LABELS, text_features)
+            #     mask_labels.append({"label": label, "confidence": score})
 
             # Create visualization
             final_image = np.zeros((H, W, 4), dtype=np.uint8)
@@ -621,7 +606,7 @@ def segment_image():
                 'success': True,
                 'segmented_image': img_base64,
                 'mask_count': int(len(kept_masks)),
-                'labels': mask_labels
+                # 'labels': mask_labels
             })
         else:
             return jsonify({'error': 'Invalid prompt type'}), 400
