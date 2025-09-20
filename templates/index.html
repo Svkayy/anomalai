@@ -19,7 +19,7 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1400px;  /* Increased from 1200px to 1400px for larger images */
             margin: 0 auto;
             background: white;
             border-radius: 15px;
@@ -90,37 +90,67 @@
 
         .image-container {
             display: flex;
-            gap: 20px;
-            margin-top: 30px;
+            gap: 30px;  /* Increased from 20px to 30px for more spacing */
+            margin-top: 40px;  /* Increased from 30px to 40px */
             flex-wrap: wrap;
+            justify-content: center;  /* Center the sections */
+            align-items: flex-start;  /* Align sections to top */
+        }
+        
+        /* Responsive design for smaller screens */
+        @media (max-width: 1200px) {
+            .image-container {
+                gap: 20px;  /* Reduce gap on smaller screens */
+            }
+            
+            .image-section {
+                min-width: 400px;  /* Slightly smaller on medium screens */
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .image-container {
+                flex-direction: column;  /* Stack vertically on mobile */
+                gap: 15px;
+            }
+            
+            .image-section {
+                min-width: 100%;  /* Full width on mobile */
+                padding: 20px;  /* Reduce padding on mobile */
+            }
         }
 
         .image-section {
             flex: 1;
-            min-width: 300px;
+            min-width: 450px;  /* Increased from 300px to 450px for larger sections */
             background: #f9f9f9;
-            border-radius: 10px;
-            padding: 20px;
+            border-radius: 12px;  /* Increased from 10px to 12px */
+            padding: 30px;  /* Increased from 20px to 30px for more padding */
             text-align: center;
         }
 
         .image-section h3 {
-            margin-bottom: 15px;
+            margin-bottom: 20px;  /* Increased from 15px to 20px */
             color: #333;
+            font-size: 1.4em;  /* Added larger font size */
+            font-weight: 600;  /* Added font weight for emphasis */
         }
 
         .canvas-container {
             position: relative;
             display: inline-block;
-            border: 2px solid #ddd;
-            border-radius: 8px;
+            border: 3px solid #ddd;  /* Increased from 2px to 3px */
+            border-radius: 12px;  /* Increased from 8px to 12px */
             overflow: hidden;
+            margin: 15px 0;  /* Added margin for better spacing */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);  /* Added subtle shadow */
         }
 
         canvas {
             display: block;
             max-width: 100%;
             height: auto;
+            border-radius: 8px;  /* Added border radius to canvas */
         }
         
         #resultCanvas {
@@ -132,11 +162,12 @@
         .result-canvas-container {
             position: relative;
             display: inline-block;
-            border: 2px solid #ddd;
-            border-radius: 8px;
+            border: 3px solid #ddd;  /* Increased from 2px to 3px */
+            border-radius: 12px;  /* Increased from 8px to 12px */
             overflow: visible;
-            margin: 10px 0;
+            margin: 15px 0;  /* Increased from 10px to 15px */
             background: #f8f9fa;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);  /* Added subtle shadow */
         }
         
         .label-overlay {
@@ -539,6 +570,160 @@
             border-radius: 20px;
             font-size: 0.9em;
         }
+        
+        /* Coordinate Window Styles */
+        .coordinate-window {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 500px;
+            max-width: 90vw;
+            max-height: 80vh;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            z-index: 1000;
+            overflow: hidden;
+        }
+        
+        .coordinate-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .coordinate-header h3 {
+            margin: 0;
+            font-size: 1.2em;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+        
+        .close-btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .coordinate-content {
+            padding: 20px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        
+        .coordinate-info {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+        
+        .coordinate-list {
+            margin-bottom: 20px;
+        }
+        
+        .coordinate-item {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            transition: all 0.2s;
+        }
+        
+        .coordinate-item:hover {
+            background: #e9ecef;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .coordinate-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .coordinate-label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 1.1em;
+        }
+        
+        .coordinate-confidence {
+            background: #007bff;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+        }
+        
+        .coordinate-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            font-size: 0.9em;
+        }
+        
+        .coordinate-detail {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+        }
+        
+        .coordinate-detail-label {
+            color: #6c757d;
+            font-weight: 500;
+        }
+        
+        .coordinate-detail-value {
+            color: #495057;
+            font-family: monospace;
+        }
+        
+        /* Depth color coding */
+        .depth-value {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .depth-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        
+        
+        .coordinate-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        .coordinate-actions .btn {
+            margin: 0;
+        }
     </style>
 </head>
 <body>
@@ -629,6 +814,28 @@
                 </div>
             </div>
 
+            <!-- Coordinate Dictionary Window -->
+            <div class="coordinate-window" id="coordinateWindow" style="display: none;">
+                <div class="coordinate-header">
+                    <h3>📍 Object Coordinates & Depth</h3>
+                    <button class="close-btn" onclick="closeCoordinateWindow()">×</button>
+                </div>
+                <div class="coordinate-content">
+                    <div class="coordinate-info">
+                        <p><strong>Coordinates are relative to image size (0-1)</strong></p>
+                        <p><strong>Depth values are normalized (0-1)</strong></p>
+                        <p><strong>Depth colors match the depth map visualization</strong></p>
+                    </div>
+                    <div class="coordinate-list" id="coordinateList">
+                        <!-- Coordinates will be populated here -->
+                    </div>
+                    <div class="coordinate-actions">
+                        <button class="btn btn-secondary" onclick="copyCoordinates()">📋 Copy JSON</button>
+                        <button class="btn btn-info" onclick="exportCoordinates()">💾 Export CSV</button>
+                    </div>
+                </div>
+            </div>
+
             <div class="controls" id="controls" style="display: none;">
                 <div class="control-group">
                     <label>Selection Method:</label>
@@ -648,6 +855,12 @@
                         📁 Download PSD Files
                     </button>
                     <small class="text-muted">Download individual PNG files for each segmented object</small>
+                </div>
+                <div class="control-group" id="coordinateSection" style="display: none;">
+                    <button class="btn btn-success" id="coordinateBtn" onclick="showCoordinateWindow()">
+                        📍 Show Object Coordinates
+                    </button>
+                    <small class="text-muted">View relative coordinates and depth for each segmented object</small>
                 </div>
                 <div class="control-group">
                     <button class="btn btn-info" id="extractTextBtn" onclick="extractText()" disabled>
@@ -879,17 +1092,17 @@
         }
 
         function setupCanvas(img) {
-            // Set canvas size
-            const maxWidth = 800;  // Increased from 400 to 800
-            const maxHeight = 600; // Increased from 400 to 600
+            // Set canvas size - Higher resolution for better user experience
+            const maxWidth = 1200;  // Increased from 800 to 1200 for better detail
+            const maxHeight = 900;  // Increased from 600 to 900 for better detail
             let { width, height } = calculateAspectRatioFit(img.width, img.height, maxWidth, maxHeight);
             
             originalCanvas.width = width;
             originalCanvas.height = height;
             
-            // Make result canvas bigger
-            const resultMaxWidth = 2400; // Doubled from 1200 to 2400
-            const resultMaxHeight = 1800;  // Doubled from 900 to 1800
+            // Make result canvas even bigger for high-quality output
+            const resultMaxWidth = 3200; // Increased from 2400 to 3200 for ultra-high resolution
+            const resultMaxHeight = 2400;  // Increased from 1800 to 2400 for ultra-high resolution
             let { width: resultWidth, height: resultHeight } = calculateAspectRatioFit(img.width, img.height, resultMaxWidth, resultMaxHeight);
             
             resultCanvas.width = resultWidth;
@@ -1325,7 +1538,11 @@
                 showLoading(false);
                 if (data.success) {
                     // Display result (labels are already overlaid on the image)
+                    if (data.labels && data.labels.length > 0) {
+                        displayResultWithCoordinates(data.segmented_image, data.labels);
+                    } else {
                         displayResult(data.segmented_image);
+                    }
                     
                     // Log the box coordinates for debugging
                     if (data.box) {
@@ -1354,6 +1571,19 @@
                 resultCtx.drawImage(img, 0, 0, resultCanvas.width, resultCanvas.height);
             };
             img.src = 'data:image/png;base64,' + base64Image;
+        }
+
+        function displayResultWithCoordinates(base64Image, coordinates) {
+            // Store coordinates for later use
+            currentCoordinates = coordinates;
+            
+            // Display the image
+            displayResult(base64Image);
+            
+            // Show coordinate button if we have coordinates
+            if (coordinates && coordinates.length > 0) {
+                document.getElementById('coordinateSection').style.display = 'block';
+            }
         }
 
 
@@ -1815,16 +2045,129 @@
 const depthCanvas = document.getElementById('depthCanvas');
 const depthCtx = depthCanvas.getContext('2d');
 
-function displayDepth(base64Image) {
-    const img = new Image();
-    img.onload = function() {
-        depthCanvas.width = resultCanvas.width;
-        depthCanvas.height = resultCanvas.height;
-        depthCtx.clearRect(0, 0, depthCanvas.width, depthCanvas.height);
-        depthCtx.drawImage(img, 0, 0, depthCanvas.width, depthCanvas.height);
-    };
-    img.src = base64Image;
-}
+        function displayDepth(base64Image) {
+            const img = new Image();
+            img.onload = function() {
+                depthCanvas.width = resultCanvas.width;
+                depthCanvas.height = resultCanvas.height;
+                depthCtx.clearRect(0, 0, depthCanvas.width, depthCanvas.height);
+                depthCtx.drawImage(img, 0, 0, depthCanvas.width, depthCanvas.height);
+            };
+            img.src = base64Image;
+        }
+
+        // Coordinate window functionality
+        let currentCoordinates = null;
+
+        function showCoordinateWindow() {
+            if (currentCoordinates && currentCoordinates.length > 0) {
+                displayCoordinates(currentCoordinates);
+                document.getElementById('coordinateWindow').style.display = 'block';
+            } else {
+                showError('No coordinate data available. Please run segmentation first.');
+            }
+        }
+
+        function closeCoordinateWindow() {
+            document.getElementById('coordinateWindow').style.display = 'none';
+        }
+
+        function displayCoordinates(coordinates) {
+            const coordinateList = document.getElementById('coordinateList');
+            coordinateList.innerHTML = '';
+
+            coordinates.forEach((item, index) => {
+                const coordItem = document.createElement('div');
+                coordItem.className = 'coordinate-item';
+                
+                const coords = item.coordinates || {};
+                
+                coordItem.innerHTML = `
+                    <div class="coordinate-item-header">
+                        <span class="coordinate-label">${item.label || 'Unknown'}</span>
+                        <span class="coordinate-confidence">${Math.round((item.confidence || 0) * 100)}%</span>
+                    </div>
+                    <div class="coordinate-details">
+                        <div class="coordinate-detail">
+                            <span class="coordinate-detail-label">X (relative):</span>
+                            <span class="coordinate-detail-value">${coords.relative_x || 0}</span>
+                        </div>
+                        <div class="coordinate-detail">
+                            <span class="coordinate-detail-label">Y (relative):</span>
+                            <span class="coordinate-detail-value">${coords.relative_y || 0}</span>
+                        </div>
+                        <div class="coordinate-detail">
+                            <span class="coordinate-detail-label">Z (depth):</span>
+                            <span class="coordinate-detail-value depth-value">
+                                <span class="depth-indicator" style="background-color: ${coords.depth_color || '#808080'};"></span>
+                                ${coords.relative_z || 0}
+                            </span>
+                        </div>
+                        <div class="coordinate-detail">
+                            <span class="coordinate-detail-label">Center X:</span>
+                            <span class="coordinate-detail-value">${coords.center_x || 0}</span>
+                        </div>
+                        <div class="coordinate-detail">
+                            <span class="coordinate-detail-label">Center Y:</span>
+                            <span class="coordinate-detail-value">${coords.center_y || 0}</span>
+                        </div>
+                        <div class="coordinate-detail">
+                            <span class="coordinate-detail-label">Mask #:</span>
+                            <span class="coordinate-detail-value">${index + 1}</span>
+                        </div>
+                    </div>
+                `;
+                
+                coordinateList.appendChild(coordItem);
+            });
+        }
+
+        function copyCoordinates() {
+            if (currentCoordinates) {
+                const jsonString = JSON.stringify(currentCoordinates, null, 2);
+                navigator.clipboard.writeText(jsonString).then(() => {
+                    showSuccess('Coordinates copied to clipboard!');
+                }).catch(() => {
+                    showError('Failed to copy coordinates to clipboard');
+                });
+            }
+        }
+
+        function exportCoordinates() {
+            if (currentCoordinates) {
+                // Convert to CSV format
+                let csv = 'Label,Confidence,Relative_X,Relative_Y,Relative_Z,Center_X,Center_Y,Mask_Index\n';
+                
+                currentCoordinates.forEach((item, index) => {
+                    const coords = item.coordinates || {};
+                    csv += `${item.label || 'Unknown'},${item.confidence || 0},${coords.relative_x || 0},${coords.relative_y || 0},${coords.relative_z || 0},${coords.center_x || 0},${coords.center_y || 0},${index + 1}\n`;
+                });
+                
+                // Create and download CSV file
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'object_coordinates.csv';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                
+                showSuccess('Coordinates exported to CSV!');
+            }
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success';
+            successDiv.textContent = message;
+            document.querySelector('.content').insertBefore(successDiv, document.querySelector('.upload-section'));
+            
+            setTimeout(() => {
+                successDiv.remove();
+            }, 3000);
+        }
 
     </script>
 </body>

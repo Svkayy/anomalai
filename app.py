@@ -47,8 +47,8 @@ clip_device = None
 parallel_config = {
     'max_workers': 4,
     'batch_size': 32,
-    'target_points': 32,  # Reduced from 256 to 32 to avoid over-segmentation
-    'max_masks': 15       # Reduced from 50 to 15 for cleaner results
+    'target_points': 200,  # Reduced from 256 to 32 to avoid over-segmentation
+    'max_masks': 50       # Reduced from 50 to 15 for cleaner results
 }
 
 def initialize_sam():
@@ -178,6 +178,96 @@ def classify_mask(image_path, mask, labels, text_features):
         print(f"Error classifying mask: {e}")
         return "unknown", 0.0
 
+def extract_mask_coordinates_and_depth(mask, image_width, image_height, depth_map=None, depth_colored=None):
+    """
+    Extract relative coordinates (x, y) and depth (z) for a mask.
+    
+    Args:
+        mask: Binary mask array
+        image_width: Width of the original image
+        image_height: Height of the original image
+        depth_map: Optional depth map array (same size as mask)
+        depth_colored: Optional colored depth map (BGR format)
+    
+    Returns:
+        dict: Contains relative_x, relative_y, relative_z, center_x, center_y, depth_color
+    """
+    # Find mask coordinates
+    ys, xs = np.where(mask > 0)
+    
+    if len(xs) == 0 or len(ys) == 0:
+        return {
+            "relative_x": 0.0,
+            "relative_y": 0.0,
+            "relative_z": 0.0,
+            "center_x": 0.0,
+            "center_y": 0.0,
+            "depth_color": "#808080"  # Default gray
+        }
+    
+    # Calculate center coordinates
+    center_x = float(np.mean(xs))
+    center_y = float(np.mean(ys))
+    
+    # Convert to relative coordinates (0 to 1)
+    relative_x = center_x / image_width
+    relative_y = center_y / image_height
+    
+    # Calculate relative depth if depth map is available
+    relative_z = 0.0
+    depth_color = "#808080"  # Default gray
+    
+    if depth_map is not None:
+        try:
+            # Get depth value at the center point of the mask
+            center_x_int = int(center_x)
+            center_y_int = int(center_y)
+            
+            # Ensure coordinates are within bounds
+            if (0 <= center_x_int < depth_map.shape[1] and 
+                0 <= center_y_int < depth_map.shape[0]):
+                
+                # Get depth value at center point
+                center_depth = depth_map[center_y_int, center_x_int]
+                
+                # Normalize depth to 0-1 range
+                min_depth = np.min(depth_map)
+                max_depth = np.max(depth_map)
+                if max_depth > min_depth:
+                    relative_z = (center_depth - min_depth) / (max_depth - min_depth)
+                else:
+                    relative_z = 0.5  # Default to middle if no depth variation
+                    
+                # Extract color from colored depth map if available
+                if depth_colored is not None:
+                    try:
+                        if (0 <= center_x_int < depth_colored.shape[1] and 
+                            0 <= center_y_int < depth_colored.shape[0]):
+                            # Get BGR color at center point
+                            bgr_color = depth_colored[center_y_int, center_x_int]
+                            # Convert BGR to RGB and then to hex
+                            rgb_color = (bgr_color[2], bgr_color[1], bgr_color[0])
+                            depth_color = f"#{rgb_color[0]:02x}{rgb_color[1]:02x}{rgb_color[2]:02x}"
+                    except Exception as e:
+                        print(f"Error extracting depth color: {e}")
+                        depth_color = "#808080"
+                        
+            else:
+                print(f"Center coordinates ({center_x_int}, {center_y_int}) out of depth map bounds")
+                relative_z = 0.0
+        except Exception as e:
+            print(f"Error extracting depth at center point: {e}")
+            relative_z = 0.0
+    
+    return {
+        "relative_x": round(relative_x, 4),
+        "relative_y": round(relative_y, 4),
+        "relative_z": round(relative_z, 4),
+        "center_x": int(center_x),
+        "center_y": int(center_y),
+        "depth_color": depth_color
+    }
+
 
 def remove_small_regions(mask: np.ndarray, min_region_area: int = 0):
     """
@@ -284,9 +374,9 @@ def parallel_grid_segmentation(sam_model, filepath, original_size,
     
     W, H = original_size
     
-    # Calculate grid points based on resized image dimensions (max 800x600)
-    max_display_width = 800
-    max_display_height = 600
+    # Calculate grid points based on resized image dimensions (max 1200x900)
+    max_display_width = 1200  # Increased to match frontend original canvas
+    max_display_height = 900  # Increased to match frontend original canvas
     
     # Calculate display dimensions maintaining aspect ratio
     display_ratio = min(max_display_width / W, max_display_height / H)
@@ -733,20 +823,42 @@ def segment_image():
                 batch_size=parallel_config['batch_size']
             )
             
+            # Generate depth map for depth extraction
+            depth_map = None
+            depth_colored = None
+            if depth_pipe is not None:
+                try:
+                    print("Generating depth map for coordinate extraction...")
+                    result = depth_pipe(Image.open(filepath))
+                    depth_map = np.array(result["depth"])
+                    
+                    # Generate colored depth map for color extraction
+                    depth_normalized = (depth_map - depth_map.min()) / (depth_map.max() - depth_map.min()) * 255
+                    depth_normalized = depth_normalized.astype("uint8")
+                    depth_colored = cv2.applyColorMap(depth_normalized, cv2.COLORMAP_INFERNO)
+                    
+                    print("Depth map and colored depth map generated successfully")
+                except Exception as e:
+                    print(f"Error generating depth map: {e}")
+                    depth_map = None
+                    depth_colored = None
+            else:
+                print("Depth estimation model not available, skipping depth extraction")
+            
             # Classify masks using CLIP
             mask_labels = []
             if clip_model is not None and len(kept_masks) > 0:
-                # Define common object labels for classification
+                # Simple closed vocabulary for automatic labeling
                 LABELS = [
-                    "tree", "bush", "grass", "flower", "leaf", "moss",
-                    "rock", "mountain", "hill", "valley", "cliff", "cave",
-                    "river", "stream", "lake", "pond", "waterfall", "ocean", "beach", "shore",
-                    "sky", "cloud", "sun", "moon", "star", "rain", "snow", "fog", "lightning", "rainbow",
-                    "sand", "soil", "mud", "path", "trail", "road",
-                    "forest", "meadow", "field", "desert", "swamp", "marsh", "wetland", "tundra",
-                    "volcano", "glacier", "iceberg",
-                    "fence", "bridge", "tower", "cabin", "house", "barn", "windmill",
-                    "animal", "bird", "fish", "insect", "deer", "bear", "wolf", "fox", "rabbit", "horse", "cow", "sheep"
+                    "Sky",
+                    "Cloud", 
+                    "Mountain",
+                    "Tree",
+                    "Grass/Field",
+                    "Flower",
+                    "Water/Lake",
+                    "Reflection",
+                    "House/Building"
                 ]
 
                 
@@ -757,10 +869,15 @@ def segment_image():
                     print(f"Classifying {len(kept_masks)} masks...")
                     for i, mask in enumerate(kept_masks):
                         label, confidence = classify_mask(filepath, mask, LABELS, text_features)
+                        
+                        # Extract coordinates and depth for this mask
+                        coords = extract_mask_coordinates_and_depth(mask, W, H, depth_map, depth_colored)
+                        
                         mask_labels.append({
                             "label": label, 
                             "confidence": round(confidence, 3),
-                            "mask_index": i
+                            "mask_index": i,
+                            "coordinates": coords
                         })
                         if i % 10 == 0:
                             print(f"Classified {i+1}/{len(kept_masks)} masks")
@@ -922,20 +1039,42 @@ def segment_video_frame():
                 batch_size=parallel_config['batch_size']
             )
             
+            # Generate depth map for depth extraction
+            depth_map = None
+            depth_colored = None
+            if depth_pipe is not None:
+                try:
+                    print("Generating depth map for video frame coordinate extraction...")
+                    result = depth_pipe(Image.open(frame_path))
+                    depth_map = np.array(result["depth"])
+                    
+                    # Generate colored depth map for color extraction
+                    depth_normalized = (depth_map - depth_map.min()) / (depth_map.max() - depth_map.min()) * 255
+                    depth_normalized = depth_normalized.astype("uint8")
+                    depth_colored = cv2.applyColorMap(depth_normalized, cv2.COLORMAP_INFERNO)
+                    
+                    print("Depth map and colored depth map generated successfully for video frame")
+                except Exception as e:
+                    print(f"Error generating depth map for video frame: {e}")
+                    depth_map = None
+                    depth_colored = None
+            else:
+                print("Depth estimation model not available, skipping depth extraction")
+            
             # Classify masks using CLIP
             mask_labels = []
             if clip_model is not None and len(kept_masks) > 0:
-                # Define common object labels for classification
+                # Simple closed vocabulary for automatic labeling
                 LABELS = [
-                    "tree", "bush", "grass", "flower", "leaf", "moss",
-                    "rock", "mountain", "hill", "valley", "cliff", "cave",
-                    "river", "stream", "lake", "pond", "waterfall", "ocean", "beach", "shore",
-                    "sky", "cloud", "sun", "moon", "star", "rain", "snow", "fog", "lightning", "rainbow",
-                    "sand", "soil", "mud", "path", "trail", "road",
-                    "forest", "meadow", "field", "desert", "swamp", "marsh", "wetland", "tundra",
-                    "volcano", "glacier", "iceberg",
-                    "fence", "bridge", "tower", "cabin", "house", "barn", "windmill",
-                    "animal", "bird", "fish", "insect", "deer", "bear", "wolf", "fox", "rabbit", "horse", "cow", "sheep"
+                    "Sky",
+                    "Cloud", 
+                    "Mountain",
+                    "Tree",
+                    "Grass/Field",
+                    "Flower",
+                    "Water/Lake",
+                    "Reflection",
+                    "House/Building"
                 ]
 
                 # Prepare text features once
@@ -945,10 +1084,15 @@ def segment_video_frame():
                     print(f"Classifying {len(kept_masks)} masks for video frame {frame_number}...")
                     for i, mask in enumerate(kept_masks):
                         label, confidence = classify_mask(frame_path, mask, LABELS, text_features)
+                        
+                        # Extract coordinates and depth for this mask
+                        coords = extract_mask_coordinates_and_depth(mask, W, H, depth_map, depth_colored)
+                        
                         mask_labels.append({
                             "label": label, 
                             "confidence": round(confidence, 3),
-                            "mask_index": i
+                            "mask_index": i,
+                            "coordinates": coords
                         })
                         if i % 10 == 0:
                             print(f"Classified {i+1}/{len(kept_masks)} masks")

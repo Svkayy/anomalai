@@ -176,3 +176,5 @@ cython_debug/
 # Ignore all model folders but keep the folder
 /models/*
 !/models/.gitkeep
+coreml-sam2.1-large/*
+uploads/*

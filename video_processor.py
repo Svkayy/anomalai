@@ -69,21 +69,21 @@ class VideoProcessor:
                     # Convert BGR to RGB
                     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                     
-                    # Resize frame for faster processing (max width 1920)
+                    # Resize frame for higher quality processing (max width 2560)
                     height, width = frame_rgb.shape[:2]
-                    if width > 1920:
-                        scale = 1920 / width
-                        new_width = 1920
+                    if width > 2560:  # Increased from 1920 to 2560 for better quality
+                        scale = 2560 / width
+                        new_width = 2560
                         new_height = int(height * scale)
                         frame_rgb = cv2.resize(frame_rgb, (new_width, new_height), interpolation=cv2.INTER_AREA)
                     
                     # Convert to PIL Image
                     pil_image = Image.fromarray(frame_rgb)
                     
-                    # Save frame with compression for faster I/O
+                    # Save frame with higher quality compression
                     frame_filename = f"frame_{extracted_count:04d}.jpg"
                     frame_path = os.path.join(video_frames_dir, frame_filename)
-                    pil_image.save(frame_path, 'JPEG', quality=85, optimize=True)
+                    pil_image.save(frame_path, 'JPEG', quality=95, optimize=True)  # Increased from 85 to 95
                     
                     # Calculate timestamp
                     timestamp = frame_count / fps if fps > 0 else frame_count
