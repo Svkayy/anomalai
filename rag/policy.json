@@ -1,0 +1,429 @@
+[
+  {
+    "id": "29-cfr-1910-132",
+    "title": "29 CFR 1910.132 – General Requirements for Personal Protective Equipment (PPE)",
+    "category": "Personal Protective Equipment",
+    "summary": "Employers must provide and enforce the use of appropriate PPE whenever workplace hazards could cause injury or impairment.",
+    "key_requirements": [
+      "Provide appropriate PPE (hard hats, safety glasses, gloves, ear protection) for workplace hazards",
+      "Conduct hazard assessment to determine needed PPE",
+      "Ensure PPE properly fits each exposed employee",
+      "Train workers on when PPE is necessary, how to wear and adjust it, its limitations, and proper care",
+      "Remove defective or damaged PPE from service"
+    ],
+    "hazards_addressed": [
+      "Flying debris",
+      "Chemical exposure",
+      "Mechanical dangers",
+      "Eye injuries",
+      "Head injuries",
+      "Hand injuries",
+      "Hearing damage"
+    ],
+    "importance": "PPE is the last line of defense against injuries. This standard ensures workers have gear to minimize exposure to hazards when other controls cannot fully eliminate risks, preventing serious injuries to eyes, head, hands, and more."
+  },
+  {
+    "id": "29-cfr-1926-416",
+    "title": "29 CFR 1926.416 – Electrical Wiring and Cord Safety (Construction)",
+    "category": "Electrical Safety",
+    "summary": "Prohibits damaged or improper electrical cords and emphasizes good housekeeping with cords to prevent electrical hazards and tripping.",
+    "key_requirements": [
+      "Prohibit damaged or frayed electric cords",
+      "Do not fasten extension cords with staples, hang from nails, or suspend by wire",
+      "Keep temporary cables out of walkways or properly cover/tape them if crossing aisles",
+      "Prevent cords from running through doorways or across floors where they can be pinched",
+      "Maintain good housekeeping to prevent tripping hazards and cord damage"
+    ],
+    "hazards_addressed": [
+      "Electric shocks",
+      "Electrical burns",
+      "Electrical fires",
+      "Tripping hazards",
+      "Cord damage",
+      "Falls from tripping"
+    ],
+    "importance": "Improperly maintained or positioned electrical wires pose multiple hazards including electric shocks, burns, fires, and tripping accidents. This standard prevents common electrical accidents by ensuring cords are in safe condition and properly managed."
+  },
+  {
+    "id": "29-cfr-1910-176",
+    "title": "29 CFR 1910.176 – Handling Materials (Clear Aisles and Passageways)",
+    "category": "Housekeeping",
+    "summary": "Requires aisles and walkways to be kept clear and unobstructed to prevent slips, trips, and collisions.",
+    "key_requirements": [
+      "Maintain sufficient safe clearances for aisles",
+      "Keep passageways in good repair with no obstructions",
+      "Clearly mark permanent aisles",
+      "Prohibit storage or clutter that blocks walkways",
+      "Implement good housekeeping practices (clean spills, remove loose objects)"
+    ],
+    "hazards_addressed": [
+      "Slips and trips",
+      "Collisions",
+      "Forklift accidents",
+      "Emergency evacuation delays",
+      "Falls from tripping"
+    ],
+    "importance": "Clear, unobstructed aisles are critical for preventing slips, trips, and collisions in everyday operations. Cluttered pathways can hinder emergency evacuations and frequently lead to workplace falls and injuries."
+  },
+  {
+    "id": "29-cfr-1910-37",
+    "title": "29 CFR 1910.37 – Maintenance of Exit Routes (Emergency Egress)",
+    "category": "Emergency Preparedness",
+    "summary": "Ensures exit routes remain free and unobstructed at all times for safe emergency evacuation.",
+    "key_requirements": [
+      "Keep exit routes free and unobstructed at all times",
+      "Prohibit materials, equipment, or storage in exit paths",
+      "Keep corridors, stairwells, and doorways clear of blockages",
+      "Ensure exit doors cannot be locked from inside",
+      "Allow employees to open exit doors without special knowledge or tools",
+      "Properly mark exit routes leading to safe refuge or outside"
+    ],
+    "hazards_addressed": [
+      "Trapped occupants in emergencies",
+      "Fire fatalities",
+      "Emergency evacuation delays",
+      "Inaccessible exits",
+      "Locked exit doors"
+    ],
+    "importance": "Blocked or locked exits can be deadly in fires or other emergencies. This standard is crucial for fire safety and emergency planning, ensuring everyone can evacuate quickly and safely when every second counts."
+  },
+  {
+    "id": "29-cfr-1926-300",
+    "title": "29 CFR 1926.300 – Hand and Power Tools (General Requirements)",
+    "category": "Tool Safety",
+    "summary": "Requires tools to be kept in safe condition with proper maintenance and safety guards in place.",
+    "key_requirements": [
+      "Maintain all hand and power tools in safe condition",
+      "Conduct regular inspections and maintenance",
+      "Replace worn parts and keep blades sharp",
+      "Ensure handles are secure",
+      "Install required safety guards and devices",
+      "Guard exposed moving parts (belts, gears, shafts, blades)",
+      "Use appropriate PPE when using tools"
+    ],
+    "hazards_addressed": [
+      "Lacerations and cuts",
+      "Punctures",
+      "Amputations",
+      "Electric shocks",
+      "Tool failure",
+      "Flying objects",
+      "Entanglement"
+    ],
+    "importance": "Even simple tools can cause severe injuries if defective, poorly maintained, or used without safeguards. This standard addresses one of the most common sources of workplace injuries by ensuring tools are safe to operate and reinforcing regular inspection and hazard awareness."
+  },
+  {
+    "id": "29-cfr-1910-212",
+    "title": "29 CFR 1910.212 – Machine Guarding (General Requirements for Machines)",
+    "category": "Machine Safety",
+    "summary": "Requires machine guarding to protect operators from moving parts and points of operation hazards.",
+    "key_requirements": [
+      "Guard moving parts and points of operation",
+      "Protect from point-of-operation contact, ingoing nip points, rotating parts, flying chips, and sparks",
+      "Install guards, safety devices, or enclosures on machinery",
+      "Ensure guards are affixed to the machine and not easily removable",
+      "Design guards to not introduce new hazards",
+      "Provide equivalent protection if direct attachment is not feasible"
+    ],
+    "hazards_addressed": [
+      "Crushed limbs",
+      "Amputations",
+      "Severe cuts",
+      "Point-of-operation injuries",
+      "Nip point injuries",
+      "Flying debris",
+      "Rotating part contact"
+    ],
+    "importance": "Inadequate machine guarding is consistently among the top OSHA violations. Unguarded machinery can lead to gruesome injuries including crushed limbs, amputations, severe cuts, or death. This standard compels employers to eliminate these risks at the source."
+  },
+  {
+    "id": "29-cfr-1910-178",
+    "title": "29 CFR 1910.178 – Powered Industrial Trucks (Forklift Safety)",
+    "category": "Vehicle Safety",
+    "summary": "Governs safe design, maintenance, and operation of forklifts and similar industrial trucks with mandatory operator training.",
+    "key_requirements": [
+      "Meet recognized safety standards for vehicle design",
+      "Conduct regular inspections and maintenance",
+      "Remove unsafe forklifts from service until repaired",
+      "Follow safe operating practices (safe speeds, use horns, no extra riders)",
+      "Develop comprehensive training program",
+      "Ensure operators are trained, evaluated, and certified",
+      "Cover both truck-related and workplace-specific topics",
+      "Provide refresher training as needed"
+    ],
+    "hazards_addressed": [
+      "Forklift tip-overs",
+      "Struck-by accidents",
+      "Falls from forklifts",
+      "Collisions",
+      "Load handling accidents",
+      "Pedestrian injuries"
+    ],
+    "importance": "Forklifts are involved in numerous serious accidents with roughly 100 fatalities and 35,000 serious injuries annually in U.S. workplaces. This comprehensive standard mitigates risks through equipment upkeep and operator competency requirements."
+  },
+  {
+    "id": "29-cfr-1926-451",
+    "title": "29 CFR 1926.451 – Scaffolds (General Requirements in Construction)",
+    "category": "Fall Protection",
+    "summary": "Establishes safety requirements for scaffold construction, support, fall protection, and access in construction work.",
+    "key_requirements": [
+      "Design scaffolds by qualified person to support 4 times maximum intended load",
+      "Use proper footings and foundation (base plates, mud sills)",
+      "Do not overload platforms beyond capacity",
+      "Use materials and components in good condition per manufacturer instructions",
+      "Provide fall protection for scaffolds over 10 feet (guardrails or personal fall arrest)",
+      "Fully plank and deck scaffold platforms",
+      "Install guardrails on all open sides and ends",
+      "Provide safe means of access (ladders, stairs, built-in ladder frames)",
+      "Inspect scaffolds before each work shift and after incidents",
+      "Have competent person oversee erection, moving, and dismantling"
+    ],
+    "hazards_addressed": [
+      "Scaffold collapse",
+      "Falls from height",
+      "Struck by falling objects",
+      "Scaffold overloading",
+      "Improper access",
+      "Missing guardrails"
+    ],
+    "importance": "Scaffolding hazards are a leading cause of injuries and citations in construction. Scaffold-related accidents account for about 4,500 injuries and over 60 deaths annually. This standard addresses critical aspects of scaffold safety including strength, stability, fall protection, and oversight."
+  },
+  {
+    "id": "29-cfr-1926-501",
+    "title": "29 CFR 1926.501 – Fall Protection (Duty to Have Fall Protection in Construction)",
+    "category": "Fall Protection",
+    "summary": "Requires fall protection for construction workers at elevations of 6 feet or more above lower levels.",
+    "key_requirements": [
+      "Provide fall protection at elevations of 6 feet or more",
+      "Install guardrail systems around edges and openings",
+      "Provide safety net systems where appropriate",
+      "Equip workers with personal fall arrest systems (harnesses with lifelines/anchors)",
+      "Protect workers on unprotected roof edges or leading edges",
+      "Cover workers near skylights or floor openings",
+      "Protect workers on scaffolds and ladders",
+      "Cover workers over excavations",
+      "Protect workers near dangerous equipment",
+      "Provide training on fall hazards and protection equipment"
+    ],
+    "hazards_addressed": [
+      "Falls from roofs",
+      "Falls from scaffolds",
+      "Falls from ladders",
+      "Falls from structural steel",
+      "Falls into excavations",
+      "Falls through floor openings",
+      "Falls near skylights"
+    ],
+    "importance": "Falls are consistently the number one cause of fatalities in construction, representing roughly one-third of all on-site deaths. This is OSHA's most frequently cited violation. Enforcing fall protection saves lives by preventing deadly falls and significantly improving jobsite safety."
+  },
+  {
+    "id": "29-cfr-1910-134",
+    "title": "29 CFR 1910.134 – Respiratory Protection",
+    "category": "Respiratory Safety",
+    "summary": "Establishes requirements for respiratory protection programs to protect workers from airborne contaminants and oxygen-deficient atmospheres.",
+    "key_requirements": [
+      "Develop and implement a written respiratory protection program",
+      "Conduct workplace evaluation to identify respiratory hazards",
+      "Select appropriate respirators based on hazard assessment",
+      "Provide medical evaluations for respirator users",
+      "Conduct fit testing for tight-fitting respirators",
+      "Train employees on proper respirator use and maintenance",
+      "Implement procedures for respirator cleaning, storage, and inspection",
+      "Establish procedures for respirator use in IDLH (Immediately Dangerous to Life or Health) atmospheres"
+    ],
+    "hazards_addressed": [
+      "Airborne contaminants",
+      "Oxygen-deficient atmospheres",
+      "Dust and particulates",
+      "Chemical vapors and gases",
+      "Biological hazards",
+      "Respiratory diseases",
+      "Asphyxiation"
+    ],
+    "importance": "Respiratory protection is critical for preventing occupational lung diseases and fatalities from airborne hazards. This standard ensures workers have proper protection when engineering controls cannot eliminate respiratory hazards."
+  },
+  {
+    "id": "29-cfr-1910-147",
+    "title": "29 CFR 1910.147 – The Control of Hazardous Energy (Lockout/Tagout)",
+    "category": "Energy Control",
+    "summary": "Establishes requirements for controlling hazardous energy during servicing and maintenance of machines and equipment.",
+    "key_requirements": [
+      "Develop and implement energy control procedures",
+      "Identify all energy sources and isolation points",
+      "Use lockout devices to prevent equipment startup",
+      "Use tagout devices when lockout is not feasible",
+      "Train authorized employees on energy control procedures",
+      "Train affected employees on lockout/tagout purpose and use",
+      "Conduct periodic inspections of energy control procedures",
+      "Ensure only authorized employees perform lockout/tagout",
+      "Verify isolation and de-energization before work begins"
+    ],
+    "hazards_addressed": [
+      "Unexpected equipment startup",
+      "Release of stored energy",
+      "Electrical shock",
+      "Crushing injuries",
+      "Amputations",
+      "Burns from hot surfaces",
+      "Chemical releases"
+    ],
+    "importance": "Lockout/tagout prevents serious injuries and fatalities from unexpected equipment startup or energy release. This standard is essential for protecting maintenance workers from hazardous energy during equipment servicing."
+  },
+  {
+    "id": "29-cfr-1910-1200",
+    "title": "29 CFR 1910.1200 – Hazard Communication Standard",
+    "category": "Chemical Safety",
+    "summary": "Requires employers to inform employees about hazardous chemicals in the workplace through comprehensive hazard communication programs.",
+    "key_requirements": [
+      "Develop and implement a written hazard communication program",
+      "Maintain safety data sheets (SDS) for all hazardous chemicals",
+      "Ensure all containers are properly labeled",
+      "Provide employee training on chemical hazards and protective measures",
+      "Maintain a list of hazardous chemicals in the workplace",
+      "Inform employees of non-routine tasks involving hazardous chemicals",
+      "Provide information to contractors about hazardous chemicals",
+      "Update SDSs when new information becomes available"
+    ],
+    "hazards_addressed": [
+      "Chemical exposure",
+      "Toxic effects",
+      "Corrosive burns",
+      "Fire and explosion hazards",
+      "Environmental contamination",
+      "Chronic health effects",
+      "Acute poisoning"
+    ],
+    "importance": "Hazard communication ensures workers understand chemical risks and protective measures. This standard is crucial for preventing chemical-related injuries and illnesses by providing essential safety information."
+  },
+  {
+    "id": "29-cfr-1910-146",
+    "title": "29 CFR 1910.146 – Permit-Required Confined Spaces",
+    "category": "Confined Space Safety",
+    "summary": "Establishes requirements for protecting workers from confined space hazards through permit systems and safety procedures.",
+    "key_requirements": [
+      "Identify and evaluate confined spaces in the workplace",
+      "Develop and implement a permit-required confined space program",
+      "Test atmospheric conditions before entry",
+      "Provide appropriate ventilation and monitoring",
+      "Ensure rescue and emergency services are available",
+      "Train employees on confined space hazards and procedures",
+      "Use proper entry permits and procedures",
+      "Provide appropriate PPE and rescue equipment",
+      "Conduct pre-entry briefings and safety meetings"
+    ],
+    "hazards_addressed": [
+      "Oxygen deficiency",
+      "Toxic atmospheres",
+      "Flammable or explosive atmospheres",
+      "Engulfment hazards",
+      "Entrapment",
+      "Asphyxiation",
+      "Chemical exposure"
+    ],
+    "importance": "Confined spaces present unique and often fatal hazards. This standard prevents deaths and injuries by ensuring proper evaluation, testing, and safety procedures before entering confined spaces."
+  },
+  {
+    "id": "29-cfr-1910-38",
+    "title": "29 CFR 1910.38 – Emergency Action Plans",
+    "category": "Emergency Preparedness",
+    "summary": "Requires employers to develop and implement emergency action plans for workplace emergencies.",
+    "key_requirements": [
+      "Develop a written emergency action plan",
+      "Establish procedures for reporting emergencies",
+      "Create evacuation procedures and routes",
+      "Implement procedures for accounting for employees after evacuation",
+      "Designate and train emergency response personnel",
+      "Establish procedures for employees who remain to operate critical operations",
+      "Provide training to all employees on emergency procedures",
+      "Review and update the plan as necessary"
+    ],
+    "hazards_addressed": [
+      "Fire emergencies",
+      "Natural disasters",
+      "Chemical releases",
+      "Workplace violence",
+      "Medical emergencies",
+      "Equipment failures",
+      "Evacuation delays"
+    ],
+    "importance": "Emergency action plans provide structured response to workplace emergencies, ensuring employee safety and minimizing injuries during incidents. Proper planning and training save lives during critical situations."
+  },
+  {
+    "id": "29-cfr-1910-151",
+    "title": "29 CFR 1910.151 – Medical Services and First Aid",
+    "category": "Medical Services",
+    "summary": "Establishes requirements for medical services and first aid availability in the workplace.",
+    "key_requirements": [
+      "Ensure medical personnel are readily available for advice and consultation",
+      "Provide first aid training for designated employees",
+      "Maintain first aid supplies and equipment",
+      "Ensure quick access to medical services",
+      "Provide emergency eyewash and shower stations where needed",
+      "Establish procedures for medical emergencies",
+      "Train employees on first aid procedures",
+      "Maintain records of medical services provided"
+    ],
+    "hazards_addressed": [
+      "Workplace injuries",
+      "Medical emergencies",
+      "Chemical exposure",
+      "Eye injuries",
+      "Burns",
+      "Cuts and lacerations",
+      "Shock and trauma"
+    ],
+    "importance": "Prompt medical attention can mean the difference between life and death in workplace emergencies. This standard ensures adequate medical services and first aid capabilities are available when needed."
+  },
+  {
+    "id": "29-cfr-1926-95",
+    "title": "29 CFR 1926.95 – Criteria for Personal Protective Equipment (Construction)",
+    "category": "Personal Protective Equipment",
+    "summary": "Establishes criteria for personal protective equipment in construction work, requiring employers to provide appropriate PPE at no cost to employees.",
+    "key_requirements": [
+      "Provide appropriate PPE for eyes, face, head, and extremities",
+      "Protect against workplace hazards from processes, chemicals, or mechanical irritants",
+      "Maintain PPE in sanitary and reliable condition",
+      "Ensure PPE is of safe design and construction",
+      "Provide PPE at no cost to employees",
+      "Ensure proper fit for each affected employee",
+      "Train employees on proper use and care of PPE",
+      "Remove defective PPE from service"
+    ],
+    "hazards_addressed": [
+      "Eye and face injuries",
+      "Head injuries",
+      "Hand and foot injuries",
+      "Chemical exposure",
+      "Flying debris",
+      "Mechanical irritants",
+      "Radiation exposure"
+    ],
+    "importance": "PPE is essential for protecting construction workers from various hazards. This standard ensures workers have appropriate protection and that employers provide PPE at no cost, removing financial barriers to safety."
+  },
+  {
+    "id": "29-cfr-1926-502",
+    "title": "29 CFR 1926.502 – Fall Protection Systems Criteria and Practices",
+    "category": "Fall Protection",
+    "summary": "Establishes criteria and practices for fall protection systems used in construction work.",
+    "key_requirements": [
+      "Install guardrail systems with proper height and strength requirements",
+      "Ensure safety net systems meet strength and installation criteria",
+      "Use personal fall arrest systems with proper anchorage",
+      "Limit maximum arresting force to 1,800 pounds",
+      "Prevent free fall distances greater than 6 feet",
+      "Inspect fall protection systems before each use",
+      "Remove defective components from service",
+      "Provide proper training on fall protection systems"
+    ],
+    "hazards_addressed": [
+      "Falls from height",
+      "Falls through openings",
+      "Falls from edges",
+      "Falls from ladders",
+      "Falls from scaffolds",
+      "Falls from roofs",
+      "Falls from structural steel"
+    ],
+    "importance": "Proper fall protection systems are critical for preventing construction fatalities. This standard ensures fall protection equipment meets performance criteria and is properly maintained and used."
+  }
+]
