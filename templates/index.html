@@ -57,6 +57,13 @@
             background: #f9f9f9;
         }
 
+        .file-size-info {
+            font-size: 0.9em;
+            color: #666;
+            margin: 10px 0;
+            font-style: italic;
+        }
+
         .upload-section.dragover {
             border-color: #667eea;
             background: #f0f4ff;
@@ -165,8 +172,121 @@
             border-radius: 10px;
         }
 
+        /* Video Controls Styles */
+        .video-controls {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 1px solid #dee2e6;
+        }
+
+        .video-info {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+
+        .frame-slider-container {
+            margin: 20px 0;
+        }
+
+        .frame-slider-wrapper {
+            position: relative;
+            margin-bottom: 10px;
+        }
+
+        .frame-slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .frame-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #007bff;
+            cursor: pointer;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .frame-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #007bff;
+            cursor: pointer;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            font-size: 0.85em;
+            color: #666;
+        }
+
+        .frame-controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .frame-btn {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 5px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.2s;
+        }
+
+        .frame-btn:hover {
+            background: #0056b3;
+        }
+
+        .frame-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .frame-timestamp {
+            text-align: center;
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 10px;
+        }
+
+
         .control-group {
             margin-bottom: 15px;
+        }
+
+        /* Hover effects for mask labels */
+        .mask-label {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .mask-label:hover {
+            transform: scale(1.2);
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
         }
 
         .control-group label {
@@ -430,12 +550,35 @@
 
         <div class="content">
             <div class="upload-section" id="uploadSection">
-                <h3>📁 Upload Image</h3>
-                <p>Drag and drop an image here or click to browse</p>
-                <input type="file" id="fileInput" class="file-input" accept="image/*">
+                <h3>📁 Upload Image or Video</h3>
+                <p>Drag and drop an image or video here or click to browse</p>
+                <p class="file-size-info">Maximum file size: 500MB (videos will be processed to extract frames)</p>
+                <input type="file" id="fileInput" class="file-input" accept="image/*,video/*">
                 <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
-                    Choose Image
+                    Choose File
                 </button>
+            </div>
+
+
+            <!-- Video Controls Section -->
+            <div class="video-controls" id="videoControls" style="display: none;">
+                <h3>🎬 Video Frame Analysis</h3>
+                <div class="video-info" id="videoInfo"></div>
+                <div class="frame-slider-container">
+                    <div class="frame-slider-wrapper">
+                        <input type="range" id="frameSlider" min="0" max="0" value="0" class="frame-slider">
+                        <div class="slider-labels">
+                            <span id="currentFrameLabel">Frame 0</span>
+                            <span id="totalFramesLabel">of 0</span>
+                        </div>
+                    </div>
+                    <div class="frame-controls">
+                        <button id="prevFrameBtn" class="frame-btn">⏮</button>
+                        <button id="playPauseBtn" class="frame-btn">▶️</button>
+                        <button id="nextFrameBtn" class="frame-btn">⏭</button>
+                    </div>
+                </div>
+                <div class="frame-timestamp" id="frameTimestamp">00:00</div>
             </div>
 
             <div class="instructions" id="instructions" style="display: none;">
@@ -457,9 +600,10 @@
                 </div>
                 <div id="gridInstructions" style="display: none;">
                     <ul>
-                        <li><strong>Click "Grid Segmentation":</strong> Automatically generates a grid of points</li>
-                        <li><strong>Process:</strong> Segments all unique objects found in the image</li>
-                        <li><strong>Result:</strong> Shows each object with a different colored overlay</li>
+                        <li><strong>Click "Grid Segmentation":</strong> Automatically generates 32 target points (reduced from 256 for cleaner results)</li>
+                        <li><strong>Process:</strong> Segments up to 15 unique objects found in the image (reduced from 50 for less over-segmentation)</li>
+                        <li><strong>Result:</strong> Shows each object with a different colored overlay and cleaner object boundaries</li>
+                        <li><strong>✨ Optimization:</strong> Reduced grid points and max masks for better performance and cleaner segmentation</li>
                     </ul>
                 </div>
             </div>
@@ -493,7 +637,7 @@
                     <button class="btn" id="gridBtn" onclick="setSelectionMode('grid')">Grid Segmentation</button>
                 </div>
                 <div class="control-group">
-                    <button class="btn btn-success" id="segmentBtn" onclick="segmentImage()" disabled>
+                    <button class="btn btn-success" id="segmentBtn" onclick="processSelection()" disabled>
                         🎯 Process Selection
                     </button>
                     <button class="btn btn-secondary" onclick="clearSelection()">Clear Selection</button>
@@ -511,7 +655,7 @@
                     </button>
                     <small class="text-muted">Extract text from the uploaded image using OCR</small>
                     <div class="control-group">
-                        <button class="btn btn-warning" id="depthBtn" onclick="getDepth()" disabled>
+                        <button class="btn btn-warning" id="depthBtn" onclick="generateDepth()" disabled>
                             🌄 Get Depth Map
                         </button>
                         <small class="text-muted">Generate a depth map using Depth Anything</small>
@@ -569,6 +713,15 @@
         let points = [];
         let bbox = null;
         let isDrawing = false;
+        
+        // Video-related variables
+        let currentVideo = null;
+        let currentVideoId = null;
+        let videoFrames = [];
+        let videoMetadata = null;
+        let currentFrameNumber = 0;
+        let isPlaying = false;
+        let playInterval = null;
         let startPoint = null;
 
         // Canvas elements
@@ -608,11 +761,19 @@
         }
 
         function handleFile(file) {
-            if (!file.type.startsWith('image/')) {
-                showError('Please select a valid image file.');
+            if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+                showError('Please select a valid image or video file.');
                 return;
             }
 
+            if (file.type.startsWith('image/')) {
+                handleImageFile(file);
+            } else if (file.type.startsWith('video/')) {
+                handleVideoFile(file);
+            }
+        }
+
+        function handleImageFile(file) {
             const formData = new FormData();
             formData.append('image', file);
 
@@ -628,7 +789,6 @@
                     // Enable extract text button
                     document.getElementById('extractTextBtn').disabled = false;
                     document.getElementById('depthBtn').disabled = false;
-
                 } else {
                     showError(data.error || 'Upload failed');
                 }
@@ -636,6 +796,71 @@
             .catch(error => {
                 showError('Upload failed: ' + error.message);
             });
+        }
+
+        function handleVideoFile(file) {
+            // Check file size before upload
+            const maxSize = 500 * 1024 * 1024; // 500MB
+            if (file.size > maxSize) {
+                showError(`Video file too large: ${(file.size / (1024*1024)).toFixed(1)}MB. Maximum allowed: 500MB. Please compress your video or use a smaller file.`);
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('video', file);
+
+            showLoading(true);
+
+            fetch('/upload_video', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (response.status === 413) {
+                    return response.json().then(data => {
+                        throw new Error(data.error || 'File too large');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                showLoading(false);
+                if (data.success) {
+                    currentVideoId = data.video_id;
+                    videoFrames = data.frames;
+                    videoMetadata = data.metadata;
+                    currentFrameNumber = 0;
+                    
+                    // Show video controls
+                    showVideoControls();
+                    
+                    // Enable depth button for video
+                    document.getElementById('depthBtn').disabled = false;
+                    
+                    // Load first frame
+                    loadVideoFrame(0);
+                    
+                    // Show file size info
+                    if (data.file_size_mb) {
+                        console.log(`Video uploaded successfully: ${data.file_size_mb}MB`);
+                    }
+                } else {
+                    showError(data.error);
+                }
+            })
+            .catch(error => {
+                showLoading(false);
+                console.error('Error:', error);
+                showError(error.message || 'Video upload failed');
+            });
+        }
+
+        function updateImageContainerTitle(title) {
+            const imageContainer = document.getElementById('imageContainer');
+            const titleElement = imageContainer.querySelector('h3');
+            if (titleElement) {
+                titleElement.textContent = title;
+            }
         }
 
         function loadImage(file) {
@@ -655,16 +880,16 @@
 
         function setupCanvas(img) {
             // Set canvas size
-            const maxWidth = 400;
-            const maxHeight = 400;
+            const maxWidth = 800;  // Increased from 400 to 800
+            const maxHeight = 600; // Increased from 400 to 600
             let { width, height } = calculateAspectRatioFit(img.width, img.height, maxWidth, maxHeight);
             
             originalCanvas.width = width;
             originalCanvas.height = height;
             
             // Make result canvas bigger
-            const resultMaxWidth = 800;
-            const resultMaxHeight = 600;
+            const resultMaxWidth = 2400; // Doubled from 1200 to 2400
+            const resultMaxHeight = 1800;  // Doubled from 900 to 1800
             let { width: resultWidth, height: resultHeight } = calculateAspectRatioFit(img.width, img.height, resultMaxWidth, resultMaxHeight);
             
             resultCanvas.width = resultWidth;
@@ -809,8 +1034,9 @@
             // Redraw image
             originalCtx.drawImage(currentImage, 0, 0, originalCanvas.width, originalCanvas.height);
             
-            // Calculate grid spacing (same as backend: 20 pixels)
-            const gridSpacing = 20;
+            // Calculate grid spacing for 32 target points (reduced from 256)
+            // Using larger spacing to achieve ~32 points instead of 256
+            const gridSpacing = 60; // Increased from 20 to 60 for sparser grid
             const originalWidth = currentImage.width;
             const originalHeight = currentImage.height;
             const canvasWidth = originalCanvas.width;
@@ -848,8 +1074,8 @@
             
             const gridCount = Math.ceil(canvasWidth / canvasGridSpacing) * Math.ceil(canvasHeight / canvasGridSpacing);
             
-            originalCtx.fillText(`Grid Points: ${gridCount}`, 10, 30);
-            originalCtx.strokeText(`Grid Points: ${gridCount}`, 10, 30);
+            originalCtx.fillText(`Grid Points: ${gridCount} (Reduced from 256 for cleaner results)`, 10, 30);
+            originalCtx.strokeText(`Grid Points: ${gridCount} (Reduced from 256 for cleaner results)`, 10, 30);
         }
 
         function setSelectionMode(mode) {
@@ -941,6 +1167,86 @@
             document.getElementById('fileInput').value = '';
         }
 
+        function processSelection() {
+            if (currentVideoId && currentFileId && currentFileId.startsWith('video_')) {
+                // This is a video frame, use the video frame segmentation
+                segmentVideoFrame();
+            } else if (currentFileId) {
+                // This is a regular image
+                segmentImage();
+            } else {
+                showError('No image or video uploaded');
+            }
+        }
+
+        function extractText() {
+            if (currentVideoId && currentFileId && currentFileId.startsWith('video_')) {
+                // For video frames, we need to handle text extraction differently
+                showError('Text extraction not available for video frames yet');
+                return;
+            } else if (currentFileId) {
+                // Regular image text extraction
+                extractTextFromImage();
+            } else {
+                showError('No image uploaded');
+            }
+        }
+
+        function generateDepth() {
+            if (!currentFileId) {
+                showError('No image uploaded');
+                return;
+            }
+
+            showLoading(true);
+
+            // Auto-detect if this is a video frame or regular image
+            if (currentFileId.startsWith('video_')) {
+                // Video frame: use the video frame endpoint
+                fetch('/depth_video_frame', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        video_id: currentVideoId,
+                        frame_number: currentFrameNumber
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    showLoading(false);
+                    if (data.success) {
+                        displayDepth(data.depth_image);
+                    } else {
+                        showError(data.error);
+                    }
+                })
+                .catch(error => {
+                    showLoading(false);
+                    console.error('Error:', error);
+                    showError('Depth estimation failed');
+                });
+            } else {
+                // Regular image: use the standard depth endpoint
+                fetch(`/depth/${currentFileId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        showLoading(false);
+                        if (data.success) {
+                            displayDepth(data.depth_image);
+                        } else {
+                            showError(data.error || 'Depth estimation failed');
+                        }
+                    })
+                    .catch(error => {
+                        showLoading(false);
+                        console.error('Error:', error);
+                        showError('Depth estimation failed: ' + error.message);
+                    });
+            }
+        }
+
         function segmentImage() {
             if (!currentFileId) {
                 showError('No image uploaded');
@@ -1019,7 +1325,7 @@
                 showLoading(false);
                 if (data.success) {
                     // Display result (labels are already overlaid on the image)
-                    displayResult(data.segmented_image);
+                        displayResult(data.segmented_image);
                     
                     // Log the box coordinates for debugging
                     if (data.box) {
@@ -1027,7 +1333,7 @@
                     }
                     // Log the mask count for grid segmentation
                     if (data.mask_count) {
-                        console.log('Grid segmentation found', data.mask_count, 'unique objects');
+                        console.log('Grid segmentation found', data.mask_count, 'unique objects (max 15, reduced from 50 for cleaner results)');
                         // Show download button for grid segmentation
                         showDownloadButton();
                     }
@@ -1064,6 +1370,238 @@
             setTimeout(() => {
                 errorDiv.remove();
             }, 5000);
+        }
+
+        // Video control functions
+        function showVideoControls() {
+            document.getElementById('videoControls').style.display = 'block';
+            document.getElementById('imageContainer').style.display = 'block';
+            document.getElementById('controls').style.display = 'block';
+            document.getElementById('instructions').style.display = 'block';
+            
+            // Update video info
+            const videoInfo = document.getElementById('videoInfo');
+            videoInfo.innerHTML = `
+                <strong>Video:</strong> ${videoMetadata.filename}<br>
+                <strong>Duration:</strong> ${videoMetadata.duration.toFixed(2)}s<br>
+                <strong>FPS:</strong> ${videoMetadata.fps.toFixed(2)}<br>
+                <strong>Total Frames:</strong> ${videoMetadata.total_frames}<br>
+                <strong>Extracted Frames:</strong> ${videoMetadata.extracted_frames} (every 7th frame)<br>
+                <strong>Frame Interval:</strong> 7 frames
+            `;
+            
+            // Setup slider
+            const slider = document.getElementById('frameSlider');
+            slider.max = videoFrames.length - 1;
+            slider.value = 0;
+            
+            // Update labels
+            updateFrameLabels();
+            
+            // Setup event listeners
+            setupVideoEventListeners();
+        }
+
+        function setupVideoEventListeners() {
+            const slider = document.getElementById('frameSlider');
+            const prevBtn = document.getElementById('prevFrameBtn');
+            const nextBtn = document.getElementById('nextFrameBtn');
+            const playPauseBtn = document.getElementById('playPauseBtn');
+            
+            slider.addEventListener('input', function() {
+                const frameNumber = parseInt(this.value);
+                loadVideoFrame(frameNumber);
+            });
+            
+            prevBtn.addEventListener('click', function() {
+                if (currentFrameNumber > 0) {
+                    loadVideoFrame(currentFrameNumber - 1);
+                }
+            });
+            
+            nextBtn.addEventListener('click', function() {
+                if (currentFrameNumber < videoFrames.length - 1) {
+                    loadVideoFrame(currentFrameNumber + 1);
+                }
+            });
+            
+            playPauseBtn.addEventListener('click', function() {
+                togglePlayPause();
+            });
+        }
+
+        function loadVideoFrame(frameNumber) {
+            if (frameNumber < 0 || frameNumber >= videoFrames.length) {
+                return;
+            }
+            
+            currentFrameNumber = frameNumber;
+            const frame = videoFrames[frameNumber];
+            
+            // Update slider
+            document.getElementById('frameSlider').value = frameNumber;
+            
+            // Update labels
+            updateFrameLabels();
+            
+            // Load frame image
+            fetch(`/video/${currentVideoId}/frame/${frameNumber}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Display the frame in the original image section
+                        const img = new Image();
+                        img.onload = function() {
+                            // Set as current image for all operations
+                            currentImage = img;
+                            currentFileId = `video_${currentVideoId}_frame_${frameNumber}`;
+                            
+                            // Clear any existing selections
+                            clearSelection();
+                            
+                            // Display in original canvas
+                            displayImage(img);
+                            
+                            // Enable all controls for this frame
+                            document.getElementById('segmentBtn').disabled = false;
+                            document.getElementById('extractTextBtn').disabled = false;
+                            document.getElementById('depthBtn').disabled = false;
+                            
+                            // Show instructions for the current mode
+                            showInstructions();
+                            
+                            // Update the image container title to show it's a video frame
+                            updateImageContainerTitle(`Video Frame ${frameNumber + 1}`);
+                        };
+                        img.src = data.frame_data;
+                        
+                        // Update timestamp
+                        const timestamp = formatTimestamp(frame.timestamp);
+                        document.getElementById('frameTimestamp').textContent = timestamp;
+                    } else {
+                        showError('Failed to load frame: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading frame:', error);
+                    showError('Failed to load frame');
+                });
+        }
+
+        function updateFrameLabels() {
+            document.getElementById('currentFrameLabel').textContent = `Frame ${currentFrameNumber + 1}`;
+            document.getElementById('totalFramesLabel').textContent = `of ${videoFrames.length}`;
+        }
+
+        function formatTimestamp(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function togglePlayPause() {
+            const playPauseBtn = document.getElementById('playPauseBtn');
+            
+            if (isPlaying) {
+                // Pause
+                clearInterval(playInterval);
+                isPlaying = false;
+                playPauseBtn.textContent = '▶️';
+            } else {
+                // Play
+                isPlaying = true;
+                playPauseBtn.textContent = '⏸️';
+                
+                playInterval = setInterval(() => {
+                    if (currentFrameNumber < videoFrames.length - 1) {
+                        loadVideoFrame(currentFrameNumber + 1);
+                } else {
+                        // End of video
+                        togglePlayPause();
+                    }
+                }, 1000 / videoMetadata.fps); // Play at video FPS
+            }
+        }
+
+        function segmentVideoFrame() {
+            if (!currentVideoId) {
+                showError('No video loaded');
+                return;
+            }
+            
+            if (!currentImage) {
+                showError('No frame loaded');
+                return;
+            }
+            
+            showLoading(true);
+            
+            // Determine prompt type based on current selection mode
+            let prompt_type = 'grid';
+            let prompts = [];
+            
+            if (selectionMode === 'points' && points.length > 0) {
+                prompt_type = 'points';
+                // Scale point coordinates to original image dimensions
+                const originalWidth = currentImage.width;
+                const originalHeight = currentImage.height;
+                const canvasWidth = originalCanvas.width;
+                const canvasHeight = originalCanvas.height;
+                
+                const scaleX = originalWidth / canvasWidth;
+                const scaleY = originalHeight / canvasHeight;
+                
+                prompts = points.map(point => ({
+                    x: Math.round(point.x * scaleX),
+                    y: Math.round(point.y * scaleY),
+                    is_positive: point.isPositive
+                }));
+            } else if (selectionMode === 'bbox' && bbox) {
+                prompt_type = 'bbox';
+                // Scale bbox coordinates to original image dimensions
+                const originalWidth = currentImage.width;
+                const originalHeight = currentImage.height;
+                const canvasWidth = originalCanvas.width;
+                const canvasHeight = originalCanvas.height;
+                
+                const scaleX = originalWidth / canvasWidth;
+                const scaleY = originalHeight / canvasHeight;
+                
+                prompts = [{
+                    x1: Math.round(bbox.x1 * scaleX),
+                    y1: Math.round(bbox.y1 * scaleY),
+                    x2: Math.round(bbox.x2 * scaleX),
+                    y2: Math.round(bbox.y2 * scaleY)
+                }];
+            }
+            
+            fetch('/segment_video_frame', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    video_id: currentVideoId,
+                    frame_number: currentFrameNumber,
+                    prompt_type: prompt_type,
+                    prompts: prompts
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                showLoading(false);
+                if (data.success) {
+                    // Display result (labels are already overlaid on the image)
+                    displayResult(data.segmented_image);
+                } else {
+                    showError(data.error);
+                }
+            })
+            .catch(error => {
+                showLoading(false);
+                console.error('Error:', error);
+                showError('Segmentation failed');
+            });
         }
 
         function showDownloadButton() {
@@ -1276,30 +1814,6 @@
         // Depth estimation
 const depthCanvas = document.getElementById('depthCanvas');
 const depthCtx = depthCanvas.getContext('2d');
-
-function getDepth() {
-    if (!currentFileId) {
-        showError('No image uploaded');
-        return;
-    }
-
-    showLoading(true);
-
-    fetch(`/depth/${currentFileId}`)
-        .then(response => response.json())
-        .then(data => {
-            showLoading(false);
-            if (data.success) {
-                displayDepth(data.depth_image);
-            } else {
-                showError(data.error || 'Depth estimation failed');
-            }
-        })
-        .catch(error => {
-            showLoading(false);
-            showError('Depth estimation failed: ' + error.message);
-        });
-}
 
 function displayDepth(base64Image) {
     const img = new Image();

@@ -13,13 +13,24 @@ import tempfile
 import os
 from PIL import Image, ImageDraw
 import pytesseract
+from video_processor import process_video_upload, get_video_frame, get_video_metadata
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB max file size for videos
 
 # Ensure upload directory exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+# Global progress tracking for video processing
+video_progress = {}
+
+# Global error handler for file size exceeded
+@app.errorhandler(413)
+def too_large(e):
+    return jsonify({
+        'error': f'File too large. Maximum allowed size is {app.config["MAX_CONTENT_LENGTH"] / (1024*1024):.1f}MB. Please compress your video or use a smaller file.'
+    }), 413
 
 # Initialize SAM2 model (global variable)
 sam_model = None
@@ -36,8 +47,8 @@ clip_device = None
 parallel_config = {
     'max_workers': 4,
     'batch_size': 32,
-    'target_points': 256,
-    'max_masks': 50
+    'target_points': 32,  # Reduced from 256 to 32 to avoid over-segmentation
+    'max_masks': 15       # Reduced from 50 to 15 for cleaner results
 }
 
 def initialize_sam():
@@ -273,14 +284,30 @@ def parallel_grid_segmentation(sam_model, filepath, original_size,
     
     W, H = original_size
     
-    # Calculate parameters
+    # Calculate grid points based on resized image dimensions (max 800x600)
+    max_display_width = 800
+    max_display_height = 600
+    
+    # Calculate display dimensions maintaining aspect ratio
+    display_ratio = min(max_display_width / W, max_display_height / H)
+    display_W = int(W * display_ratio)
+    display_H = int(H * display_ratio)
+    
+    # Calculate parameters based on display dimensions
     points_per_side = int(round(math.sqrt(target_points)))
     points_per_side = max(8, points_per_side)
     
-    # Build grid points
-    xs = np.linspace(0, W - 1, points_per_side)
-    ys = np.linspace(0, H - 1, points_per_side)
-    grid_points = [Point(x=float(x), y=float(y), label=1) for y in ys for x in xs]
+    # Build grid points based on display dimensions
+    xs = np.linspace(0, display_W - 1, points_per_side)
+    ys = np.linspace(0, display_H - 1, points_per_side)
+    
+    # Scale points back to original image coordinates
+    scale_x = W / display_W
+    scale_y = H / display_H
+    scaled_xs = xs * scale_x
+    scaled_ys = ys * scale_y
+    
+    grid_points = [Point(x=float(x), y=float(y), label=1) for y in scaled_ys for x in scaled_xs]
     
     # Calculate minimum area
     min_area = int(min_area_frac * W * H)
@@ -409,6 +436,108 @@ def upload_image():
         'width': width,
         'height': height
     })
+
+@app.route('/upload_video', methods=['POST'])
+def upload_video():
+    """Upload and process video file"""
+    if 'video' not in request.files:
+        return jsonify({'error': 'No video provided'}), 400
+    
+    file = request.files['video']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    # Check file extension
+    allowed_extensions = {'.mov', '.mp4', '.avi', '.mkv', '.webm', '.MOV', '.MP4', '.AVI', '.MKV', '.WEBM'}
+    file_ext = os.path.splitext(file.filename)[1]
+    if file_ext.lower() not in [ext.lower() for ext in allowed_extensions]:
+        return jsonify({'error': f'Unsupported video format: {file_ext}. Supported formats: MOV, MP4, AVI, MKV, WebM'}), 400
+    
+    try:
+        # Generate unique filename
+        video_id = str(uuid.uuid4())
+        filename = f"{video_id}{file_ext}"
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        
+        # Save the uploaded video
+        file.save(filepath)
+        
+        # Check file size after upload
+        file_size = os.path.getsize(filepath)
+        max_size = app.config['MAX_CONTENT_LENGTH']
+        if file_size > max_size:
+            os.remove(filepath)  # Clean up
+            return jsonify({'error': f'Video file too large: {file_size / (1024*1024):.1f}MB. Maximum allowed: {max_size / (1024*1024):.1f}MB'}), 413
+        
+        print(f"Processing video: {filename} ({file_size / (1024*1024):.1f}MB)")
+        
+        # Process video and extract frames
+        frames, metadata = process_video_upload(filepath, max_frames=100, video_id=video_id)
+        
+        if not frames:
+            return jsonify({'error': 'Failed to extract frames from video'}), 500
+        
+        return jsonify({
+            'success': True,
+            'video_id': video_id,
+            'filename': filename,
+            'frames': frames,
+            'metadata': metadata,
+            'file_size_mb': round(file_size / (1024*1024), 2)
+        })
+        
+    except Exception as e:
+        # Clean up file if it was created
+        if 'filepath' in locals() and os.path.exists(filepath):
+            os.remove(filepath)
+        return jsonify({'error': f'Video processing failed: {str(e)}'}), 500
+
+@app.route('/video/<video_id>/frame/<int:frame_number>', methods=['GET'])
+def get_video_frame_data(video_id, frame_number):
+    """Get specific frame data for video analysis"""
+    try:
+        frame_info = get_video_frame(video_id, frame_number)
+        if not frame_info:
+            return jsonify({'error': 'Frame not found'}), 404
+        
+        # Read frame image and convert to base64
+        with open(frame_info['path'], 'rb') as f:
+            frame_data = f.read()
+        
+        frame_base64 = base64.b64encode(frame_data).decode('utf-8')
+        
+        # Determine image format from file extension
+        frame_path = frame_info['path']
+        if frame_path.lower().endswith('.jpg') or frame_path.lower().endswith('.jpeg'):
+            mime_type = 'image/jpeg'
+        else:
+            mime_type = 'image/png'
+        
+        return jsonify({
+            'success': True,
+            'frame_info': frame_info,
+            'frame_data': f'data:{mime_type};base64,{frame_base64}'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to get frame: {str(e)}'}), 500
+
+@app.route('/video/<video_id>/metadata', methods=['GET'])
+def get_video_metadata_route(video_id):
+    """Get video metadata"""
+    try:
+        metadata = get_video_metadata(video_id)
+        if not metadata:
+            return jsonify({'error': 'Video metadata not found'}), 404
+        
+        return jsonify({
+            'success': True,
+            'metadata': metadata
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Failed to get video metadata: {str(e)}'}), 500
+
 
 @app.route('/segment', methods=['POST'])
 def segment_image():
@@ -696,7 +825,7 @@ def segment_image():
                     # Draw text with outline for better visibility
                     try:
                         # Try to use a default font, fallback to basic if not available
-                        font_size = max(12, min(H, W) // 50)
+                        font_size = max(20, min(H, W) // 25)  # Increased text size
                         try:
                             from PIL import ImageFont
                             font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", font_size)
@@ -745,15 +874,268 @@ def segment_image():
     except Exception as e:
         return jsonify({'error': f'Processing failed: {str(e)}'}), 500
 
+@app.route('/segment_video_frame', methods=['POST'])
+def segment_video_frame():
+    """Segment a specific video frame"""
+    if sam_model is None:
+        return jsonify({'error': 'SAM2 model not loaded'}), 500
+    
+    data = request.get_json()
+    video_id = data.get('video_id')
+    frame_number = data.get('frame_number')
+    prompt_type = data.get('prompt_type', 'grid')
+    prompts = data.get('prompts', [])
+    
+    if not video_id or frame_number is None:
+        return jsonify({'error': 'Missing video_id or frame_number'}), 400
+    
+    try:
+        # Get frame information
+        frame_info = get_video_frame(video_id, frame_number)
+        if not frame_info:
+            return jsonify({'error': 'Frame not found'}), 404
+        
+        frame_path = frame_info['path']
+        
+        # Process the frame using existing segmentation logic
+        if prompt_type == 'grid':
+            # Grid segmentation for video frame
+            sam_model.get_image_embedding(frame_path)
+            original_size = Image.open(frame_path).size
+            W, H = original_size
+
+            # Read image for visualization
+            original_image = cv2.imread(frame_path)
+            original_rgb = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
+
+            # Use parallel processing for grid segmentation
+            kept_masks, kept_boxes, kept_areas = parallel_grid_segmentation(
+                sam_model=sam_model,
+                filepath=frame_path,
+                original_size=original_size,
+                target_points=parallel_config['target_points'],
+                max_masks=parallel_config['max_masks'],
+                min_area_frac=0.001,
+                nms_box_thresh=0.7,
+                dup_mask_iou_thresh=0.5,
+                max_workers=parallel_config['max_workers'],
+                batch_size=parallel_config['batch_size']
+            )
+            
+            # Classify masks using CLIP
+            mask_labels = []
+            if clip_model is not None and len(kept_masks) > 0:
+                # Define common object labels for classification
+                LABELS = [
+                    "tree", "bush", "grass", "flower", "leaf", "moss",
+                    "rock", "mountain", "hill", "valley", "cliff", "cave",
+                    "river", "stream", "lake", "pond", "waterfall", "ocean", "beach", "shore",
+                    "sky", "cloud", "sun", "moon", "star", "rain", "snow", "fog", "lightning", "rainbow",
+                    "sand", "soil", "mud", "path", "trail", "road",
+                    "forest", "meadow", "field", "desert", "swamp", "marsh", "wetland", "tundra",
+                    "volcano", "glacier", "iceberg",
+                    "fence", "bridge", "tower", "cabin", "house", "barn", "windmill",
+                    "animal", "bird", "fish", "insect", "deer", "bear", "wolf", "fox", "rabbit", "horse", "cow", "sheep"
+                ]
+
+                # Prepare text features once
+                text_features = prepare_text_features(LABELS)
+                
+                if text_features is not None:
+                    print(f"Classifying {len(kept_masks)} masks for video frame {frame_number}...")
+                    for i, mask in enumerate(kept_masks):
+                        label, confidence = classify_mask(frame_path, mask, LABELS, text_features)
+                        mask_labels.append({
+                            "label": label, 
+                            "confidence": round(confidence, 3),
+                            "mask_index": i
+                        })
+                        if i % 10 == 0:
+                            print(f"Classified {i+1}/{len(kept_masks)} masks")
+                else:
+                    print("CLIP model not available, skipping classification")
+            else:
+                print("CLIP model not available, skipping classification")
+
+            # Create visualization with labels
+            final_image = np.zeros((H, W, 4), dtype=np.uint8)
+            final_image[:, :, :3] = original_rgb
+            final_image[:, :, 3] = 255
+
+            # Sort by area (largest first) for nicer visualization
+            order = np.argsort(-np.array(kept_areas))
+            colors = [
+                [255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0],
+                [255, 0, 255], [0, 255, 255], [255, 128, 0], [128, 0, 255],
+                [0, 128, 255], [255, 128, 128]
+            ]
+
+            for i, k in enumerate(order[:parallel_config['max_masks']]):
+                mask = kept_masks[k]
+                color = colors[i % len(colors)]
+                overlay = np.zeros((H, W, 4), dtype=np.uint8)
+                overlay[:, :, 0] = color[0]
+                overlay[:, :, 1] = color[1]
+                overlay[:, :, 2] = color[2]
+                overlay[:, :, 3] = 128  # 50% alpha
+                overlay[:, :, 3] = (overlay[:, :, 3] * mask).astype(np.uint8)
+
+                alpha = overlay[:, :, 3:4].astype(np.float32) / 255.0
+                alpha = np.repeat(alpha, 3, axis=2)
+                final_image[:, :, :3] = (
+                    final_image[:, :, :3] * (1 - alpha) + overlay[:, :, :3] * alpha
+                ).astype(np.uint8)
+
+            # Convert to PIL Image for drawing labels
+            pil_image = Image.fromarray(final_image, 'RGBA')
+            draw = ImageDraw.Draw(pil_image)
+            
+            # Draw labels on each mask
+            for i, k in enumerate(order[:parallel_config['max_masks']]):
+                mask = kept_masks[k]
+                color = colors[i % len(colors)]
+                
+                # Find the center of the mask for label placement
+                ys, xs = np.where(mask > 0)
+                if len(xs) > 0 and len(ys) > 0:
+                    center_x = int(np.mean(xs))
+                    center_y = int(np.mean(ys))
+                    
+                    # Get label information if available
+                    label_text = f"Mask {i+1}"
+                    # Find the corresponding label for this mask (k is the original mask index)
+                    for label_info in mask_labels:
+                        if label_info['mask_index'] == k:
+                            label_text = f"{label_info['label']} ({label_info['confidence']*100:.1f}%)"
+                            break
+                    
+                    # Choose text color (white or black based on background)
+                    text_color = (255, 255, 255) if sum(color) < 400 else (0, 0, 0)
+                    
+                    # Draw text with outline for better visibility
+                    try:
+                        # Try to use a default font, fallback to basic if not available
+                        font_size = max(20, min(H, W) // 25)  # Increased text size
+                        try:
+                            from PIL import ImageFont
+                            font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", font_size)
+                        except:
+                            font = ImageFont.load_default()
+                        
+                        # Get text bounding box for outline
+                        bbox = draw.textbbox((0, 0), label_text, font=font)
+                        text_width = bbox[2] - bbox[0]
+                        text_height = bbox[3] - bbox[1]
+                        
+                        # Position text at center of mask
+                        text_x = center_x - text_width // 2
+                        text_y = center_y - text_height // 2
+                        
+                        # Draw outline (black background)
+                        outline_width = 2
+                        for dx in range(-outline_width, outline_width + 1):
+                            for dy in range(-outline_width, outline_width + 1):
+                                if dx*dx + dy*dy <= outline_width*outline_width:
+                                    draw.text((text_x + dx, text_y + dy), label_text, 
+                                            fill=(0, 0, 0), font=font)
+                        
+                        # Draw main text
+                        draw.text((text_x, text_y), label_text, fill=text_color, font=font)
+                        
+                    except Exception as e:
+                        print(f"Error drawing label for mask {i}: {e}")
+                        # Fallback: draw simple text without font
+                        draw.text((center_x, center_y), label_text, fill=text_color)
+
+            # Convert the PIL image back to base64
+            buffer = io.BytesIO()
+            pil_image.save(buffer, format='PNG')
+            img_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+
+            return jsonify({
+                'success': True,
+                'segmented_image': img_base64,
+                'mask_count': int(len(kept_masks)),
+                'labels': mask_labels,
+                'frame_number': frame_number,
+                'frame_info': frame_info
+            })
+        
+        else:
+            return jsonify({'error': 'Only grid segmentation supported for video frames'}), 400
+        
+    except Exception as e:
+        return jsonify({'error': f'Video frame processing failed: {str(e)}'}), 500
+
+@app.route('/depth_video_frame', methods=['POST'])
+def depth_video_frame():
+    """Generate depth map for a specific video frame"""
+    if depth_pipe is None:
+        return jsonify({'error': 'Depth estimation model not loaded'}), 500
+    
+    data = request.get_json()
+    video_id = data.get('video_id')
+    frame_number = data.get('frame_number')
+    
+    if not video_id or frame_number is None:
+        return jsonify({'error': 'Missing video_id or frame_number'}), 400
+    
+    try:
+        # Get frame information
+        frame_info = get_video_frame(video_id, frame_number)
+        if not frame_info:
+            return jsonify({'error': 'Frame not found'}), 404
+        
+        frame_path = frame_info['path']
+        
+        # Generate depth map using the existing depth estimation
+        result = depth_pipe(Image.open(frame_path))
+        depth_image = np.array(result["depth"])
+        
+        # Normalize to [0,255] for visualization
+        depth = (depth_image - depth_image.min()) / (depth_image.max() - depth_image.min()) * 255
+        depth = depth.astype("uint8")
+
+        # Apply inferno colormap (purple/yellow) - same as regular depth endpoint
+        depth_colored = cv2.applyColorMap(depth, cv2.COLORMAP_INFERNO)
+
+        # Encode to base64
+        _, buffer = cv2.imencode('.png', depth_colored)
+        depth_base64 = base64.b64encode(buffer).decode('utf-8')
+        
+        return jsonify({
+            'success': True,
+            'depth_image': f'data:image/png;base64,{depth_base64}',
+            'frame_number': frame_number
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Depth estimation failed: {str(e)}'}), 500
+
 @app.route('/depth/<file_id>', methods=['GET'])
 def get_depth(file_id):
     """Generate depth map for uploaded image using Depth Anything"""
     if depth_pipe is None:
         return jsonify({'error': 'Depth estimation pipeline not loaded'}), 500
-        
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{file_id}.png")
-    if not os.path.exists(filepath):
-        return jsonify({'error': 'Image file not found'}), 404
+    
+    # Handle video frames (stored as .jpg) vs regular images (stored as .png)
+    if file_id.startswith('video_'):
+        # Parse video frame ID: video_{videoId}_frame_{frameNumber}
+        parts = file_id.split('_')
+        if len(parts) >= 4 and parts[0] == 'video' and parts[2] == 'frame':
+            video_id = parts[1]
+            frame_number = int(parts[3])
+            frame_info = get_video_frame(video_id, frame_number)
+            if not frame_info:
+                return jsonify({'error': 'Video frame not found'}), 404
+            filepath = frame_info['path']
+        else:
+            return jsonify({'error': 'Invalid video frame ID format'}), 400
+    else:
+        # For regular images
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{file_id}.png")
+        if not os.path.exists(filepath):
+            return jsonify({'error': 'Image file not found'}), 404
     
     try:
         # Run depth estimation
