@@ -157,13 +157,6 @@
             transform: scale(1.05);
         }
         
-        .label-line {
-            position: absolute;
-            background: linear-gradient(90deg, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.1));
-            z-index: 5;
-            pointer-events: none;
-            border-radius: 1px;
-        }
 
         .controls {
             margin-top: 20px;
@@ -318,83 +311,6 @@
             margin: 15px 0;
         }
         
-        /* Labels Display Styles */
-        .labels-container {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 15px;
-        }
-        
-        .labels-list {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-        
-        .label-item {
-            background: white;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            padding: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: all 0.2s ease;
-        }
-        
-        .label-item:hover {
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            transform: translateY(-1px);
-        }
-        
-        .label-name {
-            font-weight: 600;
-            color: #333;
-            text-transform: capitalize;
-        }
-        
-        .label-confidence {
-            background: #e3f2fd;
-            color: #1976d2;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 0.85em;
-            font-weight: 500;
-        }
-        
-        .label-confidence.high {
-            background: #e8f5e8;
-            color: #2e7d32;
-        }
-        
-        .label-confidence.medium {
-            background: #fff3e0;
-            color: #f57c00;
-        }
-        
-        .label-confidence.low {
-            background: #ffebee;
-            color: #d32f2f;
-        }
-        
-        .labels-summary {
-            text-align: center;
-            padding: 10px;
-            background: #e9ecef;
-            border-radius: 5px;
-            font-weight: 500;
-            color: #495057;
-        }
-        
-        .no-labels {
-            text-align: center;
-            color: #6c757d;
-            font-style: italic;
-            padding: 20px;
-        }
         
         .annotated-image-container {
             margin: 15px 0;
@@ -559,15 +475,6 @@
                     <h3>Segmented Result</h3>
                     <div class="result-canvas-container" id="resultContainer">
                         <canvas id="resultCanvas"></canvas>
-                    </div>
-                </div>
-                <div class="image-section" id="labelsSection" style="display: none;">
-                    <h3>Detected Objects</h3>
-                    <div class="labels-container">
-                        <div id="labelsList" class="labels-list"></div>
-                        <div class="labels-summary">
-                            <span id="labelsCount">0 objects detected</span>
-                        </div>
                     </div>
                 </div>
                 <div class="image-section">
@@ -1019,8 +926,6 @@
             }
             
             updateSegmentButton();
-            hideLabels();
-            clearOverlayLabels();
         }
 
         function resetApp() {
@@ -1034,8 +939,6 @@
             document.getElementById('instructions').style.display = 'none';
             document.getElementById('downloadSection').style.display = 'none';
             document.getElementById('fileInput').value = '';
-            hideLabels();
-            clearOverlayLabels();
         }
 
         function segmentImage() {
@@ -1115,14 +1018,8 @@
             .then(data => {
                 showLoading(false);
                 if (data.success) {
-                    // Display result with labels overlay for grid segmentation
-                    if (selectionMode === 'grid' && data.labels && data.labels.length > 0) {
-                        displayResultWithLabels(data.segmented_image, data.labels);
-                        displayLabels(data.labels);
-                    } else {
-                        displayResult(data.segmented_image);
-                        hideLabels();
-                    }
+                    // Display result (labels are already overlaid on the image)
+                    displayResult(data.segmented_image);
                     
                     // Log the box coordinates for debugging
                     if (data.box) {
@@ -1153,82 +1050,6 @@
             img.src = 'data:image/png;base64,' + base64Image;
         }
 
-        function displayResultWithLabels(base64Image, labels) {
-            const img = new Image();
-            img.onload = function() {
-                resultCtx.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
-                resultCtx.drawImage(img, 0, 0, resultCanvas.width, resultCanvas.height);
-                
-                // Clear any existing overlay labels
-                clearOverlayLabels();
-                
-                // Add overlay labels
-                addOverlayLabels(labels);
-            };
-            img.src = 'data:image/png;base64,' + base64Image;
-        }
-
-        function clearOverlayLabels() {
-            const container = document.getElementById('resultContainer');
-            const existingLabels = container.querySelectorAll('.label-overlay, .label-line');
-            existingLabels.forEach(label => label.remove());
-        }
-
-        function addOverlayLabels(labels) {
-            const container = document.getElementById('resultContainer');
-            const canvas = document.getElementById('resultCanvas');
-            
-            // Sort labels by confidence (highest first) and take top 8 to avoid clutter
-            const sortedLabels = labels.sort((a, b) => b.confidence - a.confidence).slice(0, 8);
-            
-            // Define grid positions for better label distribution
-            const gridPositions = [
-                { x: 0.1, y: 0.1 }, { x: 0.3, y: 0.1 }, { x: 0.5, y: 0.1 }, { x: 0.7, y: 0.1 },
-                { x: 0.1, y: 0.3 }, { x: 0.3, y: 0.3 }, { x: 0.5, y: 0.3 }, { x: 0.7, y: 0.3 },
-                { x: 0.1, y: 0.5 }, { x: 0.3, y: 0.5 }, { x: 0.5, y: 0.5 }, { x: 0.7, y: 0.5 },
-                { x: 0.1, y: 0.7 }, { x: 0.3, y: 0.7 }, { x: 0.5, y: 0.7 }, { x: 0.7, y: 0.7 }
-            ];
-            
-            sortedLabels.forEach((labelInfo, index) => {
-                // Use grid position or random if we have more labels than grid positions
-                const position = index < gridPositions.length ? 
-                    gridPositions[index] : 
-                    { x: Math.random() * 0.6 + 0.2, y: Math.random() * 0.6 + 0.2 };
-                
-                const x = position.x * canvas.width;
-                const y = position.y * canvas.height;
-                
-                // Create label element
-                const labelElement = document.createElement('div');
-                labelElement.className = 'label-overlay';
-                labelElement.textContent = `${labelInfo.label} (${(labelInfo.confidence * 100).toFixed(0)}%)`;
-                labelElement.style.left = `${x}px`;
-                labelElement.style.top = `${y}px`;
-                
-                // Create line element pointing to center of image
-                const lineElement = document.createElement('div');
-                lineElement.className = 'label-line';
-                
-                // Calculate line position (from label to center of image)
-                const lineX = x + 60; // Center of label
-                const lineY = y + 12; // Center of label
-                const lineEndX = canvas.width / 2;
-                const lineEndY = canvas.height / 2;
-                
-                const lineLength = Math.sqrt(Math.pow(lineEndX - lineX, 2) + Math.pow(lineEndY - lineY, 2));
-                const lineAngle = Math.atan2(lineEndY - lineY, lineEndX - lineX) * 180 / Math.PI;
-                
-                lineElement.style.left = `${lineX}px`;
-                lineElement.style.top = `${lineY}px`;
-                lineElement.style.width = `${Math.min(lineLength, 150)}px`; // Limit line length
-                lineElement.style.height = '2px';
-                lineElement.style.transform = `rotate(${lineAngle}deg)`;
-                lineElement.style.transformOrigin = '0 0';
-                
-                container.appendChild(lineElement);
-                container.appendChild(labelElement);
-            });
-        }
 
         function showLoading(show) {
             document.getElementById('loading').style.display = show ? 'block' : 'none';
@@ -1250,63 +1071,6 @@
             downloadSection.style.display = 'block';
         }
 
-        function displayLabels(labels) {
-            const labelsSection = document.getElementById('labelsSection');
-            const labelsList = document.getElementById('labelsList');
-            const labelsCount = document.getElementById('labelsCount');
-            
-            // Show the labels section
-            labelsSection.style.display = 'block';
-            
-            // Update count
-            labelsCount.textContent = `${labels.length} objects detected`;
-            
-            // Clear previous labels
-            labelsList.innerHTML = '';
-            
-            if (labels.length === 0) {
-                const noLabels = document.createElement('div');
-                noLabels.className = 'no-labels';
-                noLabels.textContent = 'No objects detected or CLIP model not available';
-                labelsList.appendChild(noLabels);
-                return;
-            }
-            
-            // Sort labels by confidence (highest first)
-            const sortedLabels = labels.sort((a, b) => b.confidence - a.confidence);
-            
-            // Create label items
-            sortedLabels.forEach((labelInfo, index) => {
-                const labelItem = document.createElement('div');
-                labelItem.className = 'label-item';
-                
-                const labelName = document.createElement('div');
-                labelName.className = 'label-name';
-                labelName.textContent = labelInfo.label;
-                
-                const confidence = document.createElement('div');
-                confidence.className = 'label-confidence';
-                confidence.textContent = `${(labelInfo.confidence * 100).toFixed(1)}%`;
-                
-                // Add confidence level class
-                if (labelInfo.confidence >= 0.7) {
-                    confidence.classList.add('high');
-                } else if (labelInfo.confidence >= 0.4) {
-                    confidence.classList.add('medium');
-                } else {
-                    confidence.classList.add('low');
-                }
-                
-                labelItem.appendChild(labelName);
-                labelItem.appendChild(confidence);
-                labelsList.appendChild(labelItem);
-            });
-        }
-
-        function hideLabels() {
-            const labelsSection = document.getElementById('labelsSection');
-            labelsSection.style.display = 'none';
-        }
 
         function downloadPSDs() {
             if (!currentFileId) {
