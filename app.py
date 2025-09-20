@@ -609,16 +609,17 @@ def segment_image():
             if clip_model is not None and len(kept_masks) > 0:
                 # Define common object labels for classification
                 LABELS = [
-                    "person", "car", "truck", "bus", "motorcycle", "bicycle",
-                    "dog", "cat", "bird", "horse", "cow", "sheep",
-                    "tree", "grass", "sky", "water", "road", "building",
-                    "house", "window", "door", "fence", "sign", "traffic light",
-                    "chair", "table", "bed", "sofa", "lamp", "book",
-                    "phone", "laptop", "keyboard", "mouse", "monitor", "television",
-                    "bottle", "cup", "bowl", "plate", "fork", "knife", "spoon",
-                    "banana", "apple", "orange", "broccoli", "carrot", "pizza",
-                    "donut", "cake", "sandwich", "hot dog", "hamburger", "french fries"
+                    "tree", "bush", "grass", "flower", "leaf", "moss",
+                    "rock", "mountain", "hill", "valley", "cliff", "cave",
+                    "river", "stream", "lake", "pond", "waterfall", "ocean", "beach", "shore",
+                    "sky", "cloud", "sun", "moon", "star", "rain", "snow", "fog", "lightning", "rainbow",
+                    "sand", "soil", "mud", "path", "trail", "road",
+                    "forest", "meadow", "field", "desert", "swamp", "marsh", "wetland", "tundra",
+                    "volcano", "glacier", "iceberg",
+                    "fence", "bridge", "tower", "cabin", "house", "barn", "windmill",
+                    "animal", "bird", "fish", "insect", "deer", "bear", "wolf", "fox", "rabbit", "horse", "cow", "sheep"
                 ]
+
                 
                 # Prepare text features once
                 text_features = prepare_text_features(LABELS)
@@ -666,7 +667,68 @@ def segment_image():
                     final_image[:, :, :3] * (1 - alpha) + overlay[:, :, :3] * alpha
                 ).astype(np.uint8)
 
+            # Convert to PIL Image for drawing labels
             pil_image = Image.fromarray(final_image, 'RGBA')
+            draw = ImageDraw.Draw(pil_image)
+            
+            # Draw labels on each mask
+            for i, k in enumerate(order[:parallel_config['max_masks']]):
+                mask = kept_masks[k]
+                color = colors[i % len(colors)]
+                
+                # Find the center of the mask for label placement
+                ys, xs = np.where(mask > 0)
+                if len(xs) > 0 and len(ys) > 0:
+                    center_x = int(np.mean(xs))
+                    center_y = int(np.mean(ys))
+                    
+                    # Get label information if available
+                    label_text = f"Mask {i+1}"
+                    # Find the corresponding label for this mask (k is the original mask index)
+                    for label_info in mask_labels:
+                        if label_info['mask_index'] == k:
+                            label_text = f"{label_info['label']} ({label_info['confidence']*100:.1f}%)"
+                            break
+                    
+                    # Choose text color (white or black based on background)
+                    text_color = (255, 255, 255) if sum(color) < 400 else (0, 0, 0)
+                    
+                    # Draw text with outline for better visibility
+                    try:
+                        # Try to use a default font, fallback to basic if not available
+                        font_size = max(12, min(H, W) // 50)
+                        try:
+                            from PIL import ImageFont
+                            font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", font_size)
+                        except:
+                            font = ImageFont.load_default()
+                        
+                        # Get text bounding box for outline
+                        bbox = draw.textbbox((0, 0), label_text, font=font)
+                        text_width = bbox[2] - bbox[0]
+                        text_height = bbox[3] - bbox[1]
+                        
+                        # Position text at center of mask
+                        text_x = center_x - text_width // 2
+                        text_y = center_y - text_height // 2
+                        
+                        # Draw outline (black background)
+                        outline_width = 2
+                        for dx in range(-outline_width, outline_width + 1):
+                            for dy in range(-outline_width, outline_width + 1):
+                                if dx*dx + dy*dy <= outline_width*outline_width:
+                                    draw.text((text_x + dx, text_y + dy), label_text, 
+                                            fill=(0, 0, 0), font=font)
+                        
+                        # Draw main text
+                        draw.text((text_x, text_y), label_text, fill=text_color, font=font)
+                        
+                    except Exception as e:
+                        print(f"Error drawing label for mask {i}: {e}")
+                        # Fallback: draw simple text without font
+                        draw.text((center_x, center_y), label_text, fill=text_color)
+
+            # Convert the PIL image back to base64
             buffer = io.BytesIO()
             pil_image.save(buffer, format='PNG')
             img_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')

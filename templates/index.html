@@ -115,6 +115,55 @@
             max-width: 100%;
             height: auto;
         }
+        
+        #resultCanvas {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        .result-canvas-container {
+            position: relative;
+            display: inline-block;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            overflow: visible;
+            margin: 10px 0;
+            background: #f8f9fa;
+        }
+        
+        .label-overlay {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.85);
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            border-radius: 8px;
+            padding: 6px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #555;
+            pointer-events: none;
+            z-index: 10;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(3px);
+            white-space: nowrap;
+            max-width: 120px;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+        
+        .label-overlay:hover {
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            transform: scale(1.05);
+        }
+        
+        .label-line {
+            position: absolute;
+            background: linear-gradient(90deg, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.1));
+            z-index: 5;
+            pointer-events: none;
+            border-radius: 1px;
+        }
 
         .controls {
             margin-top: 20px;
@@ -345,11 +394,6 @@
             color: #6c757d;
             font-style: italic;
             padding: 20px;
-            font-family: 'Courier New', monospace;
-            white-space: pre-wrap;
-            max-height: 300px;
-            overflow-y: auto;
-            line-height: 1.4;
         }
         
         .annotated-image-container {
@@ -513,7 +557,7 @@
                 </div>
                 <div class="image-section">
                     <h3>Segmented Result</h3>
-                    <div class="canvas-container">
+                    <div class="result-canvas-container" id="resultContainer">
                         <canvas id="resultCanvas"></canvas>
                     </div>
                 </div>
@@ -710,8 +754,14 @@
             
             originalCanvas.width = width;
             originalCanvas.height = height;
-            resultCanvas.width = width;
-            resultCanvas.height = height;
+            
+            // Make result canvas bigger
+            const resultMaxWidth = 800;
+            const resultMaxHeight = 600;
+            let { width: resultWidth, height: resultHeight } = calculateAspectRatioFit(img.width, img.height, resultMaxWidth, resultMaxHeight);
+            
+            resultCanvas.width = resultWidth;
+            resultCanvas.height = resultHeight;
 
             // Draw original image
             originalCtx.drawImage(img, 0, 0, width, height);
@@ -970,6 +1020,7 @@
             
             updateSegmentButton();
             hideLabels();
+            clearOverlayLabels();
         }
 
         function resetApp() {
@@ -984,6 +1035,7 @@
             document.getElementById('downloadSection').style.display = 'none';
             document.getElementById('fileInput').value = '';
             hideLabels();
+            clearOverlayLabels();
         }
 
         function segmentImage() {
@@ -1063,7 +1115,15 @@
             .then(data => {
                 showLoading(false);
                 if (data.success) {
-                    displayResult(data.segmented_image);
+                    // Display result with labels overlay for grid segmentation
+                    if (selectionMode === 'grid' && data.labels && data.labels.length > 0) {
+                        displayResultWithLabels(data.segmented_image, data.labels);
+                        displayLabels(data.labels);
+                    } else {
+                        displayResult(data.segmented_image);
+                        hideLabels();
+                    }
+                    
                     // Log the box coordinates for debugging
                     if (data.box) {
                         console.log('Bounding box coordinates:', data.box);
@@ -1073,12 +1133,6 @@
                         console.log('Grid segmentation found', data.mask_count, 'unique objects');
                         // Show download button for grid segmentation
                         showDownloadButton();
-                    }
-                    // Display labels if available (only for grid segmentation)
-                    if (selectionMode === 'grid' && data.labels && data.labels.length > 0) {
-                        displayLabels(data.labels);
-                    } else {
-                        hideLabels();
                     }
                 } else {
                     showError(data.error || 'Processing failed');
@@ -1097,6 +1151,83 @@
                 resultCtx.drawImage(img, 0, 0, resultCanvas.width, resultCanvas.height);
             };
             img.src = 'data:image/png;base64,' + base64Image;
+        }
+
+        function displayResultWithLabels(base64Image, labels) {
+            const img = new Image();
+            img.onload = function() {
+                resultCtx.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
+                resultCtx.drawImage(img, 0, 0, resultCanvas.width, resultCanvas.height);
+                
+                // Clear any existing overlay labels
+                clearOverlayLabels();
+                
+                // Add overlay labels
+                addOverlayLabels(labels);
+            };
+            img.src = 'data:image/png;base64,' + base64Image;
+        }
+
+        function clearOverlayLabels() {
+            const container = document.getElementById('resultContainer');
+            const existingLabels = container.querySelectorAll('.label-overlay, .label-line');
+            existingLabels.forEach(label => label.remove());
+        }
+
+        function addOverlayLabels(labels) {
+            const container = document.getElementById('resultContainer');
+            const canvas = document.getElementById('resultCanvas');
+            
+            // Sort labels by confidence (highest first) and take top 8 to avoid clutter
+            const sortedLabels = labels.sort((a, b) => b.confidence - a.confidence).slice(0, 8);
+            
+            // Define grid positions for better label distribution
+            const gridPositions = [
+                { x: 0.1, y: 0.1 }, { x: 0.3, y: 0.1 }, { x: 0.5, y: 0.1 }, { x: 0.7, y: 0.1 },
+                { x: 0.1, y: 0.3 }, { x: 0.3, y: 0.3 }, { x: 0.5, y: 0.3 }, { x: 0.7, y: 0.3 },
+                { x: 0.1, y: 0.5 }, { x: 0.3, y: 0.5 }, { x: 0.5, y: 0.5 }, { x: 0.7, y: 0.5 },
+                { x: 0.1, y: 0.7 }, { x: 0.3, y: 0.7 }, { x: 0.5, y: 0.7 }, { x: 0.7, y: 0.7 }
+            ];
+            
+            sortedLabels.forEach((labelInfo, index) => {
+                // Use grid position or random if we have more labels than grid positions
+                const position = index < gridPositions.length ? 
+                    gridPositions[index] : 
+                    { x: Math.random() * 0.6 + 0.2, y: Math.random() * 0.6 + 0.2 };
+                
+                const x = position.x * canvas.width;
+                const y = position.y * canvas.height;
+                
+                // Create label element
+                const labelElement = document.createElement('div');
+                labelElement.className = 'label-overlay';
+                labelElement.textContent = `${labelInfo.label} (${(labelInfo.confidence * 100).toFixed(0)}%)`;
+                labelElement.style.left = `${x}px`;
+                labelElement.style.top = `${y}px`;
+                
+                // Create line element pointing to center of image
+                const lineElement = document.createElement('div');
+                lineElement.className = 'label-line';
+                
+                // Calculate line position (from label to center of image)
+                const lineX = x + 60; // Center of label
+                const lineY = y + 12; // Center of label
+                const lineEndX = canvas.width / 2;
+                const lineEndY = canvas.height / 2;
+                
+                const lineLength = Math.sqrt(Math.pow(lineEndX - lineX, 2) + Math.pow(lineEndY - lineY, 2));
+                const lineAngle = Math.atan2(lineEndY - lineY, lineEndX - lineX) * 180 / Math.PI;
+                
+                lineElement.style.left = `${lineX}px`;
+                lineElement.style.top = `${lineY}px`;
+                lineElement.style.width = `${Math.min(lineLength, 150)}px`; // Limit line length
+                lineElement.style.height = '2px';
+                lineElement.style.transform = `rotate(${lineAngle}deg)`;
+                lineElement.style.transformOrigin = '0 0';
+                
+                container.appendChild(lineElement);
+                container.appendChild(labelElement);
+            });
         }
 
         function showLoading(show) {
