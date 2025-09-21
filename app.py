@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, make_response
 import os
 import uuid
 import base64
@@ -13,7 +13,14 @@ import tempfile
 import os
 from PIL import Image, ImageDraw
 import pytesseract
+import time
+from datetime import datetime
 from video_processor import process_video_upload, get_video_frame, get_video_metadata
+from safety_classifier import safety_classifier
+import requests
+from supabase_database import supabase_db_manager, parse_anomalai_observations, parse_anomalai_structured_data
+from rag_system import generate_formal_safety_report, is_rag_available
+import google.generativeai as genai
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -43,12 +50,18 @@ clip_model = None
 clip_preprocess = None
 clip_device = None
 
+# Store video analysis results
+video_analysis_results = {}
+
+# Initialize Gemini model
+gemini_model = None
+
 # Parallel processing configuration
 parallel_config = {
     'max_workers': 4,
     'batch_size': 32,
-    'target_points': 200,  # Reduced from 256 to 32 to avoid over-segmentation
-    'max_masks': 50       # Reduced from 50 to 15 for cleaner results
+    'target_points': 32,  # Reduced from 256 to 32 to avoid over-segmentation
+    'max_masks': 15       # Reduced from 50 to 15 for cleaner results
 }
 
 def initialize_sam():
@@ -88,6 +101,23 @@ def initialize_clip():
         return True
     except Exception as e:
         print(f"Error loading CLIP model: {e}")
+        return False
+
+def initialize_gemini():
+    """Initialize the Gemini model for safety analysis"""
+    global gemini_model
+    try:
+        # Configure Gemini API
+        genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+        
+        # Initialize the model
+        gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        print("Gemini model initialized successfully")
+        return True
+        
+    except Exception as e:
+        print(f"Error initializing Gemini model: {e}")
         return False
 
 
@@ -177,6 +207,263 @@ def classify_mask(image_path, mask, labels, text_features):
     except Exception as e:
         print(f"Error classifying mask: {e}")
         return "unknown", 0.0
+
+def create_segmented_image(image_np, masks):
+    """
+    Create a segmented image with colored masks
+    """
+    try:
+        # Create a copy of the original image
+        segmented_image = image_np.copy()
+        
+        # Generate colors for each mask
+        colors = []
+        for i in range(len(masks)):
+            # Generate a unique color for each mask
+            hue = (i * 137.5) % 360  # Golden angle for good color distribution
+            color = cv2.cvtColor(np.uint8([[[hue, 255, 255]]]), cv2.COLOR_HSV2RGB)[0][0]
+            colors.append(color)
+        
+        # Apply masks with colors
+        for i, mask in enumerate(masks):
+            color = colors[i]
+            # Create colored overlay
+            overlay = np.zeros_like(segmented_image)
+            overlay[mask > 0] = color
+            
+            # Blend with original image
+            alpha = 0.6  # Transparency
+            segmented_image = cv2.addWeighted(segmented_image, 1-alpha, overlay, alpha, 0)
+        
+        return segmented_image
+        
+    except Exception as e:
+        print(f"Error creating segmented image: {e}")
+        return image_np
+
+def process_single_frame_analysis(frame_path, frame_number):
+    """
+    Process a single frame with segmentation, depth estimation, and classification.
+    Returns analysis results for the frame.
+    """
+    try:
+        # Load the frame
+        image = Image.open(frame_path)
+        W, H = image.size
+        
+        # Generate depth map
+        depth_map = None
+        depth_colored = None
+        depth_image_base64 = None
+        
+        if depth_pipe is not None:
+            try:
+                result = depth_pipe(image)
+                depth_map = np.array(result["depth"])
+                
+                # Generate colored depth map
+                depth_normalized = (depth_map - depth_map.min()) / (depth_map.max() - depth_map.min()) * 255
+                depth_normalized = depth_normalized.astype("uint8")
+                depth_colored = cv2.applyColorMap(depth_normalized, cv2.COLORMAP_INFERNO)
+                
+                # Convert depth map to base64 for display
+                depth_pil = Image.fromarray(depth_normalized)
+                depth_buffer = io.BytesIO()
+                depth_pil.save(depth_buffer, format='PNG')
+                depth_image_base64 = base64.b64encode(depth_buffer.getvalue()).decode('utf-8')
+                
+            except Exception as e:
+                print(f"Error generating depth map for frame {frame_number}: {e}")
+        
+        # Perform segmentation using the same approach as image segmentation
+        segmented_image_base64 = None
+        objects = []
+        
+        if sam_model is not None:
+            try:
+                # Use the same approach as image segmentation
+                sam_model.get_image_embedding(frame_path)
+                original_size = Image.open(frame_path).size
+                W, H = original_size
+
+                # Read image for visualization
+                original_image = cv2.imread(frame_path)
+                original_rgb = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
+
+                # Use parallel processing for grid segmentation with higher resolution for video analysis
+                kept_masks, kept_boxes, kept_areas = parallel_grid_segmentation(
+                    sam_model=sam_model,
+                    filepath=frame_path,
+                    original_size=original_size,
+                    target_points=256,  # Higher resolution for video analysis
+                    max_masks=30,       # More masks for detailed video analysis
+                    min_area_frac=0.001,
+                    nms_box_thresh=0.7,
+                    dup_mask_iou_thresh=0.5,
+                    max_workers=parallel_config['max_workers'],
+                    batch_size=parallel_config['batch_size']
+                )
+                
+                if len(kept_masks) > 0:
+                    # Generate workplace vocabulary
+                    LABELS = generate_workplace_vocabulary()
+                    
+                    # Prepare text features
+                    text_features = prepare_text_features(LABELS)
+                    
+                    if text_features is not None:
+                        # Classify each mask
+                        for i, mask in enumerate(kept_masks):
+                            label, confidence = classify_mask(frame_path, mask, LABELS, text_features)
+                            
+                            # Extract coordinates and depth
+                            coords = extract_mask_coordinates_and_depth(mask, W, H, depth_map, depth_colored)
+                            
+                            # Classify for safety
+                            safety = safety_classifier.classify_single_object(label)
+                            
+                            objects.append({
+                                "label": label,
+                                "confidence": round(confidence, 3),
+                                "mask_index": i,  # This is the index in the kept_masks array
+                                "coordinates": coords,
+                                "safety": safety
+                            })
+                    
+                    # Create segmented image with proper overlays (same as image segmentation)
+                    final_image = np.zeros((H, W, 4), dtype=np.uint8)
+                    final_image[:, :, :3] = original_rgb
+                    final_image[:, :, 3] = 255
+
+                    # Sort by area (largest first) for nicer visualization
+                    order = np.argsort(-np.array(kept_areas))
+                    colors = [
+                        [255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0],
+                        [255, 0, 255], [0, 255, 255], [255, 128, 0], [128, 0, 255],
+                        [0, 128, 255], [255, 128, 128]
+                    ]
+
+                    for i, k in enumerate(order[:30]):  # Up to 30 masks for video analysis
+                        mask = kept_masks[k]
+                        color = colors[i % len(colors)]
+                        overlay = np.zeros((H, W, 4), dtype=np.uint8)
+                        overlay[:, :, 0] = color[0]
+                        overlay[:, :, 1] = color[1]
+                        overlay[:, :, 2] = color[2]
+                        overlay[:, :, 3] = 128  # 50% alpha
+                        overlay[:, :, 3] = (overlay[:, :, 3] * mask).astype(np.uint8)
+
+                        alpha = overlay[:, :, 3:4].astype(np.float32) / 255.0
+                        alpha = np.repeat(alpha, 3, axis=2)
+                        final_image[:, :, :3] = (
+                            final_image[:, :, :3] * (1 - alpha) + overlay[:, :, :3] * alpha
+                        ).astype(np.uint8)
+
+                    # Convert to PIL Image for drawing labels
+                    pil_image = Image.fromarray(final_image, 'RGBA')
+                    draw = ImageDraw.Draw(pil_image)
+                    
+                    # Draw labels on each mask
+                    for i, k in enumerate(order[:30]):  # Up to 30 masks for video analysis
+                        mask = kept_masks[k]
+                        color = colors[i % len(colors)]
+                        
+                        # Find the center of the mask for label placement
+                        ys, xs = np.where(mask > 0)
+                        if len(xs) > 0 and len(ys) > 0:
+                            center_x = int(np.mean(xs))
+                            center_y = int(np.mean(ys))
+                            
+                            # Get label information if available
+                            label_text = f"Mask {i+1}"
+                            # Find the corresponding label for this mask (k is the original mask index)
+                            for obj in objects:
+                                if obj.get('mask_index') == k:
+                                    label_text = f"{obj['label']} ({obj['confidence']:.2f})"
+                                    break
+                            
+                            # Draw label background
+                            bbox = draw.textbbox((center_x, center_y), label_text, font=None)
+                            text_width = bbox[2] - bbox[0]
+                            text_height = bbox[3] - bbox[1]
+                            
+                            # Draw background rectangle
+                            padding = 4
+                            draw.rectangle([
+                                center_x - text_width//2 - padding,
+                                center_y - text_height//2 - padding,
+                                center_x + text_width//2 + padding,
+                                center_y + text_height//2 + padding
+                            ], fill=(0, 0, 0, 128))
+                            
+                            # Draw text
+                            draw.text((center_x, center_y), label_text, 
+                                    fill=(255, 255, 255, 255), anchor="mm")
+                    
+                    # Convert to base64
+                    segmented_buffer = io.BytesIO()
+                    pil_image.save(segmented_buffer, format='PNG')
+                    segmented_image_base64 = base64.b64encode(segmented_buffer.getvalue()).decode('utf-8')
+                
+            except Exception as e:
+                print(f"Error processing segmentation for frame {frame_number}: {e}")
+                import traceback
+                traceback.print_exc()
+        
+        return {
+            'frame_number': frame_number,
+            'original_image': base64.b64encode(open(frame_path, 'rb').read()).decode('utf-8'),
+            'segmented_image': segmented_image_base64,
+            'depth_image': depth_image_base64,
+            'objects': objects,
+            'object_count': len(objects)
+        }
+        
+    except Exception as e:
+        print(f"Error processing frame {frame_number}: {e}")
+        return None
+
+def generate_workplace_vocabulary():
+    """
+    Generate simple workplace item vocabulary for object identification.
+    Returns a list of basic workplace items for object classification.
+    """
+    # Simple workplace items for identification
+    WORKPLACE_ITEMS = [
+        # Furniture & Workspace
+        "chair", "desk", "table", "floor", "wall", "ceiling", "door", "window",
+        "shelf", "shelving", "cabinet", "drawer", "counter", "workstation",
+        
+        # Tools & Equipment
+        "ladder", "tools", "hammer", "screwdriver", "wrench", "drill", "saw",
+        "cart", "trolley", "forklift", "crane", "generator", "compressor",
+        
+        # Electrical & Utilities
+        "electrical wiring", "cables", "extension cord", "outlet", "switch",
+        "electrical panel", "conduit", "light", "fan",
+        
+        # Construction Materials
+        "steel", "concrete", "wood", "plastic", "glass", "metal", "pipe",
+        "beam", "brick", "tile", "drywall", "insulation",
+        
+        # Safety & Barriers
+        "safety equipment", "helmet", "gloves", "goggles", "vest", "barrier",
+        "handrail", "guardrail", "sign", "marking", "tape", "rope",
+        
+        # Storage & Containers
+        "box", "container", "bag", "bucket", "drum", "pallet",
+        "cardboard", "packaging", "wrapping",
+        
+        # Machinery & Vehicles
+        "machinery", "equipment", "vehicle", "truck", "tractor", "excavator",
+        "bulldozer", "crane", "scaffolding", "platform",
+        
+        # General Items
+        "debris", "clutter", "trash", "waste", "material", "supplies",
+        "parts", "components", "hardware", "fixtures"
+    ]
+    
+    return WORKPLACE_ITEMS
 
 def extract_mask_coordinates_and_depth(mask, image_width, image_height, depth_map=None, depth_colored=None):
     """
@@ -848,18 +1135,9 @@ def segment_image():
             # Classify masks using CLIP
             mask_labels = []
             if clip_model is not None and len(kept_masks) > 0:
-                # Simple closed vocabulary for automatic labeling
-                LABELS = [
-                    "Sky",
-                    "Cloud", 
-                    "Mountain",
-                    "Tree",
-                    "Grass/Field",
-                    "Flower",
-                    "Water/Lake",
-                    "Reflection",
-                    "House/Building"
-                ]
+                # Simple workplace items for automatic labeling
+                LABELS = generate_workplace_vocabulary()
+                print(f"Generated {len(LABELS)} workplace items for classification")
 
                 
                 # Prepare text features once
@@ -1064,18 +1342,9 @@ def segment_video_frame():
             # Classify masks using CLIP
             mask_labels = []
             if clip_model is not None and len(kept_masks) > 0:
-                # Simple closed vocabulary for automatic labeling
-                LABELS = [
-                    "Sky",
-                    "Cloud", 
-                    "Mountain",
-                    "Tree",
-                    "Grass/Field",
-                    "Flower",
-                    "Water/Lake",
-                    "Reflection",
-                    "House/Building"
-                ]
+                # Simple workplace items for automatic labeling
+                LABELS = generate_workplace_vocabulary()
+                print(f"Generated {len(LABELS)} workplace items for classification")
 
                 # Prepare text features once
                 text_features = prepare_text_features(LABELS)
@@ -1588,14 +1857,777 @@ def configure_parallel():
     parallel_config = {
         'max_workers': data.get('max_workers', 4),
         'batch_size': data.get('batch_size', 32),
-        'target_points': data.get('target_points', 256),
-        'max_masks': data.get('max_masks', 50)
+        'target_points': data.get('target_points', 32),
+        'max_masks': data.get('max_masks', 15)
     }
     
     return jsonify({
         'success': True,
         'config': parallel_config
     })
+
+@app.route('/api/classify_safety', methods=['POST'])
+def classify_safety():
+    """Classify objects as safe or unsafe using zero-shot classification"""
+    try:
+        data = request.get_json()
+        objects_data = data.get('objects', [])
+        alpha = data.get('alpha', 0.05)
+        
+        if not objects_data:
+            return jsonify({'error': 'No objects provided'}), 400
+        
+        # Classify objects for safety
+        classified_objects = safety_classifier.classify_objects(objects_data, alpha)
+        
+        return jsonify({
+            'classified_objects': classified_objects,
+            'total_objects': len(classified_objects),
+            'dangerous_count': sum(1 for obj in classified_objects if obj.get('safety', {}).get('is_dangerous', False)),
+            'safe_count': sum(1 for obj in classified_objects if not obj.get('safety', {}).get('is_dangerous', False))
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/download_video_analysis_json', methods=['POST'])
+def download_video_analysis_json():
+    """Download comprehensive JSON data for video analysis results"""
+    try:
+        global video_analysis_results
+        
+        data = request.get_json()
+        video_id = data.get('video_id')
+        
+        if not video_id:
+            return jsonify({'error': 'Missing video_id'}), 400
+        
+        # Get video metadata
+        video_metadata = get_video_metadata(video_id)
+        if not video_metadata:
+            return jsonify({'error': 'Video not found'}), 404
+        
+        # Get video analysis results
+        analysis_results = video_analysis_results.get(video_id)
+        if not analysis_results:
+            return jsonify({'error': 'No analysis results found for this video'}), 404
+        
+        # Build comprehensive JSON structure
+        json_data = {
+            "video_metadata": {
+                "video_id": video_id,
+                "device_type": "smart glasses",  # Default as requested
+                "total_frames": video_metadata.get('total_frames', 0),
+                "extracted_frames": video_metadata.get('extracted_frames', 0),
+                "fps": video_metadata.get('fps', 30),
+                "duration_seconds": video_metadata.get('duration_seconds', 0),
+                "width": video_metadata.get('width', 0),
+                "height": video_metadata.get('height', 0),
+                "analysis_timestamp": analysis_results.get('analysis_timestamp'),
+                "frames_processed": analysis_results.get('frames_processed', 0),
+                "total_processing_time": analysis_results.get('total_processing_time', 0),
+                "note": "Only frames with unsafe objects are included in this export. No image data is included."
+            },
+            "frames": []
+        }
+        
+        # Process each frame - only include frames with unsafe objects
+        unsafe_frames_count = 0
+        for frame_data in analysis_results.get('frames', []):
+            # Filter objects to only include unsafe ones
+            unsafe_objects = []
+            for obj in frame_data.get('objects', []):
+                safety = obj.get('safety', {})
+                is_safe = safety.get('is_safe', True)
+                
+                # Only include unsafe objects
+                if not is_safe:
+                    coords = obj.get('coordinates', {})
+                    
+                    object_info = {
+                        "label": obj.get('label', 'unknown'),
+                        "confidence": obj.get('confidence', 0),
+                        "coordinates": {
+                            "x": coords.get('relative_x', 0),
+                            "y": coords.get('relative_y', 0),
+                            "z": coords.get('relative_z', 0),
+                            "depth_color": coords.get('depth_color', '#808080')
+                        },
+                        "safety": {
+                            "classification": safety.get('classification', 'unknown'),
+                            "confidence": safety.get('confidence', 0),
+                            "is_safe": safety.get('is_safe', False)
+                        },
+                        "mask_index": obj.get('mask_index', 0)
+                    }
+                    
+                    unsafe_objects.append(object_info)
+            
+            # Only include frames that have at least one unsafe object
+            if unsafe_objects:
+                frame_info = {
+                    "frame_number": frame_data.get('frame_number'),
+                    "processing_time": frame_data.get('processing_time', 0),
+                    "objects": unsafe_objects
+                }
+                
+                json_data["frames"].append(frame_info)
+                unsafe_frames_count += 1
+        
+        # Update metadata with unsafe frames count
+        json_data["video_metadata"]["unsafe_frames_count"] = unsafe_frames_count
+        
+        # Create JSON string
+        json_string = json.dumps(json_data, indent=2)
+        
+        # Create response with JSON file
+        response = make_response(json_string)
+        response.headers['Content-Type'] = 'application/json'
+        response.headers['Content-Disposition'] = f'attachment; filename=video_analysis_{video_id}.json'
+        
+        return response
+        
+    except Exception as e:
+        print(f"Error generating video analysis JSON: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Failed to generate JSON download'}), 500
+
+@app.route('/api/analyze_video_with_gemini', methods=['POST'])
+def analyze_video_with_gemini():
+    """Analyze video frames with unsafe objects using Gemini"""
+    try:
+        global video_analysis_results, gemini_model
+        
+        data = request.get_json()
+        video_id = data.get('video_id')
+        
+        if not video_id:
+            return jsonify({'error': 'Missing video_id'}), 400
+        
+        if gemini_model is None:
+            return jsonify({'error': 'Gemini model not initialized'}), 500
+        
+        # Get video analysis results
+        analysis_results = video_analysis_results.get(video_id)
+        if not analysis_results:
+            return jsonify({'error': 'No analysis results found for this video'}), 404
+        
+        # Get video metadata
+        video_metadata = get_video_metadata(video_id)
+        if not video_metadata:
+            return jsonify({'error': 'Video not found'}), 404
+        
+        # Build reduced JSON structure (no video metadata)
+        reduced_json_data = {
+            "frames": []
+        }
+        
+        # Process each frame - only include frames with unsafe objects
+        unsafe_frames_count = 0
+        gemini_analyses = []
+        
+        for frame_data in analysis_results.get('frames', []):
+            # Filter objects to only include unsafe ones
+            unsafe_objects = []
+            for obj in frame_data.get('objects', []):
+                safety = obj.get('safety', {})
+                is_safe = safety.get('is_safe', True)
+                
+                # Only include unsafe objects
+                if not is_safe:
+                    coords = obj.get('coordinates', {})
+                    
+                    object_info = {
+                        "label": obj.get('label', 'unknown'),
+                        "confidence": obj.get('confidence', 0),
+                        "coordinates": {
+                            "x": coords.get('relative_x', 0),
+                            "y": coords.get('relative_y', 0),
+                            "z": coords.get('relative_z', 0),
+                            "depth_color": coords.get('depth_color', '#808080')
+                        },
+                        "safety": {
+                            "classification": safety.get('classification', 'unknown'),
+                            "confidence": safety.get('confidence', 0),
+                            "is_safe": safety.get('is_safe', False)
+                        },
+                        "mask_index": obj.get('mask_index', 0)
+                    }
+                    
+                    unsafe_objects.append(object_info)
+            
+            # Only process frames that have at least one unsafe object
+            if unsafe_objects:
+                frame_number = frame_data.get('frame_number')
+                original_image = frame_data.get('original_image')
+                
+                # Add frame info to reduced JSON
+                frame_info = {
+                    "frame_number": frame_number,
+                    "processing_time": frame_data.get('processing_time', 0),
+                    "objects": unsafe_objects
+                }
+                reduced_json_data["frames"].append(frame_info)
+                unsafe_frames_count += 1
+                
+                # Generate AnomalAI analysis for this frame
+                try:
+                    # Convert base64 to PIL Image
+                    import base64
+                    from io import BytesIO
+                    
+                    image_data = base64.b64decode(original_image)
+                    image = Image.open(BytesIO(image_data))
+                    
+                    # First, get initial hazard detection
+                    initial_prompt = """Analyze this image for workplace safety hazards. Output rules: Return up to 4–5 bullet points maximum. Each bullet point must describe a distinct hazard, stated factually and neutrally. Identify both obvious risks (e.g., missing PPE, vehicle proximity, exposed machinery) and subtle risks (e.g., dangling wires, misplaced objects, obstructed walkways, poor visibility). Do not include headers, labels, or commentary. If no hazards are visible, return nothing. Do not invent hazards not supported by the image."""
+                    
+                    initial_response = gemini_model.generate_content([initial_prompt, image])
+                    initial_analysis = initial_response.text
+                    
+                    if initial_analysis and initial_analysis.strip():
+                        # Generate AnomalAI structured analysis
+                        anomalai_prompt = f"""You are AnomalAI, an AI safety assistant. 
+Your purpose is to analyze workplace images or descriptions and generate concise, neutral safety observations. 
+Always be factual and only describe hazards that are clearly mentioned in the input. 
+Each distinct hazard must map to its own observation with fields for label, severity, reasons, actions, tags, actors, timeframe, and frames. 
+Also generate a brief natural description of the unsafe scene and a summary report with counts of low, medium, and high hazards. 
+Do not include irrelevant commentary, do not fabricate hazards, and do not reference policies or external documents.
+
+You are AnomalAI, an assistant that turns workplace safety image descriptions into structured safety observations.
+
+INPUT: <<<{initial_analysis}>>>
+
+TASK:
+1. Read the text carefully and extract each distinct hazard as a separate observation.
+2. For each observation, output:
+   - label: a short snake_case identifier (e.g., improper_ladder_storage, cluttered_walkway, loose_wires).
+   - severity: choose one of "low", "medium", or "high" based on the hazard's risk.
+   - reasons: 1–3 short bullet phrases explaining why it is unsafe.
+   - actions: 1–3 short recommended corrective actions.
+   - tags: 2–5 short keywords.
+   - actors: list of entities involved (e.g., ["person#1", "forklift#7"]). If none mentioned, return an empty list.
+   - timeframe: set to "image" (since this came from a still photo).
+   - frames: set to "f{frame_number:04d}".
+
+OUTPUT:
+- First, give a concise 2–3 line natural description of what is unsafe overall.
+- Then output the JSON for the report object and an array of observations as described above.
+
+RULES:
+- Be factual and neutral; do not invent hazards that are not present in the input.
+- Do not add extra commentary beyond the description + JSON."""
+
+                        anomalai_response = gemini_model.generate_content(anomalai_prompt)
+                        structured_analysis = anomalai_response.text
+                        
+                        gemini_analyses.append({
+                            "frame_number": frame_number,
+                            "initial_analysis": initial_analysis,
+                            "structured_analysis": structured_analysis,
+                            "objects": unsafe_objects
+                        })
+                    else:
+                        # No hazards detected in this frame
+                        gemini_analyses.append({
+                            "frame_number": frame_number,
+                            "initial_analysis": "No hazards detected",
+                            "structured_analysis": None,
+                            "objects": unsafe_objects
+                        })
+                        
+                except Exception as e:
+                    print(f"Error analyzing frame {frame_number} with Gemini: {e}")
+                    gemini_analyses.append({
+                        "frame_number": frame_number,
+                        "initial_analysis": f"Error: {str(e)}",
+                        "structured_analysis": None,
+                        "objects": unsafe_objects
+                    })
+        
+        # Build final response with video metadata
+        final_response = {
+            "video_id": video_id,
+            "video_metadata": {
+                "video_id": video_id,
+                "total_frames": video_metadata.get('total_frames', 0),
+                "extracted_frames": video_metadata.get('extracted_frames', 0),
+                "frame_interval": video_metadata.get('frame_interval', 7),
+                "duration_seconds": video_metadata.get('duration_seconds', 0),
+                "device_type": "smart glasses",
+                "analysis_timestamp": time.time()
+            },
+            "unsafe_frames_count": unsafe_frames_count,
+            "gemini_analyses": gemini_analyses,
+            "reduced_json": reduced_json_data
+        }
+        
+        # Update report in database with observation counts
+        if supabase_db_manager.is_available():
+            try:
+                # Get the report_id from the analysis results
+                report_id = analysis_results.get('report_id')
+                
+                if report_id:
+                    # Parse all AnomalAI analyses to get total observation counts and structured data
+                    total_observations = {
+                        'total_observations': 0,
+                        'low': 0,
+                        'medium': 0,
+                        'high': 0
+                    }
+                    
+                    # Collect all structured observations data
+                    all_structured_observations = {
+                        'video_analysis_summary': {
+                            'total_frames_analyzed': len(gemini_analyses),
+                            'unsafe_frames_count': len([a for a in gemini_analyses if a.get('structured_analysis')]),
+                            'analysis_timestamp': datetime.now().isoformat()
+                        },
+                        'frame_analyses': []
+                    }
+                    
+                    for analysis in gemini_analyses:
+                        if analysis.get('structured_analysis'):
+                            # Parse observation counts
+                            observations = parse_anomalai_observations(analysis['structured_analysis'])
+                            total_observations['total_observations'] += observations['total_observations']
+                            total_observations['low'] += observations['low']
+                            total_observations['medium'] += observations['medium']
+                            total_observations['high'] += observations['high']
+                            
+                            # Parse structured data
+                            structured_data = parse_anomalai_structured_data(analysis['structured_analysis'])
+                            frame_analysis = {
+                                'frame_number': analysis.get('frame_number', 0),
+                                'frame_timestamp': analysis.get('frame_timestamp', 0),
+                                'description': structured_data.get('description', ''),
+                                'summary': structured_data.get('summary', {'low': 0, 'medium': 0, 'high': 0}),
+                                'observations': structured_data.get('observations', [])
+                            }
+                            all_structured_observations['frame_analyses'].append(frame_analysis)
+                    
+                    # Update the report in database with both counts and structured data
+                    success = supabase_db_manager.update_report_observations(
+                        report_id, 
+                        total_observations, 
+                        all_structured_observations
+                    )
+                    if success:
+                        print(f"Report updated with observations: {total_observations}")
+                        final_response['report_updated'] = True
+                        final_response['observation_counts'] = total_observations
+                        
+                        # Automatically generate formal report after video analysis
+                        try:
+                            print(f"Generating formal report for video analysis: {report_id}")
+                            formal_report_content = generate_formal_safety_report(all_structured_observations)
+                            
+                            if formal_report_content and "Error generating" not in formal_report_content:
+                                # Get the original report data for formal report creation
+                                original_report = supabase_db_manager.get_report(report_id)
+                                if original_report:
+                                    formal_report_id = supabase_db_manager.create_formal_report(
+                                        report_id=report_id,
+                                        video_duration=original_report['video_duration'],
+                                        video_captured_at=datetime.fromisoformat(original_report['video_captured_at'].replace('Z', '+00:00')),
+                                        video_device_type=original_report['video_device_type'],
+                                        total_observations=total_observations['total_observations'],
+                                        low=total_observations['low'],
+                                        medium=total_observations['medium'],
+                                        high=total_observations['high'],
+                                        formal_report_content=formal_report_content
+                                    )
+                                    print(f"Formal report created successfully: {formal_report_id}")
+                                    final_response['formal_report_id'] = formal_report_id
+                                    final_response['formal_report_generated'] = True
+                                else:
+                                    print("Could not retrieve original report for formal report creation")
+                                    final_response['formal_report_generated'] = False
+                            else:
+                                print(f"Failed to generate formal report: {formal_report_content}")
+                                final_response['formal_report_generated'] = False
+                        except Exception as e:
+                            print(f"Error generating formal report: {e}")
+                            final_response['formal_report_generated'] = False
+                    else:
+                        print(f"Failed to update report {report_id}")
+                        final_response['report_updated'] = False
+                else:
+                    print("No report_id found in analysis results")
+                    final_response['report_updated'] = False
+                    
+            except Exception as e:
+                print(f"Error updating report in Supabase: {e}")
+                final_response['report_updated'] = False
+                final_response['db_error'] = str(e)
+        else:
+            print("Supabase not available - skipping report update")
+            final_response['report_updated'] = False
+        
+        return jsonify(final_response)
+        
+    except Exception as e:
+        print(f"Error in Gemini analysis: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Failed to analyze with Gemini'}), 500
+
+@app.route('/api/analyze_image_with_gemini', methods=['POST'])
+def analyze_image_with_gemini():
+    """Analyze a single image with Gemini for safety hazards"""
+    try:
+        global gemini_model
+        
+        # Initialize Gemini if not already done
+        if gemini_model is None:
+            if not initialize_gemini():
+                return jsonify({'error': 'Failed to initialize Gemini model'}), 500
+        
+        # Get the image data from the request
+        data = request.get_json()
+        image_base64 = data.get('image')
+        
+        if not image_base64:
+            return jsonify({'error': 'Image data is required'}), 400
+        
+        # Convert base64 to PIL Image
+        import base64
+        from io import BytesIO
+        
+        try:
+            image_data = base64.b64decode(image_base64)
+            image = Image.open(BytesIO(image_data))
+        except Exception as e:
+            return jsonify({'error': f'Invalid image data: {str(e)}'}), 400
+        
+        # Create prompt for Gemini
+        prompt = """Analyze this image for workplace safety hazards. Output rules: Return up to 4–5 bullet points maximum. Each bullet point must describe a distinct hazard, stated factually and neutrally. Identify both obvious risks (e.g., missing PPE, vehicle proximity, exposed machinery) and subtle risks (e.g., dangling wires, misplaced objects, obstructed walkways, poor visibility). Do not include headers, labels, or commentary. If no hazards are visible, return nothing. Do not invent hazards not supported by the image."""
+        
+        # Send to Gemini for initial hazard detection
+        try:
+            response = gemini_model.generate_content([prompt, image])
+            initial_analysis = response.text
+        except Exception as e:
+            return jsonify({'error': f'Gemini analysis failed: {str(e)}'}), 500
+        
+        # If no hazards detected, return simple response
+        if not initial_analysis or initial_analysis.strip() == '':
+            return jsonify({
+                'success': True,
+                'gemini_analysis': '✅ No safety hazards detected in this image.',
+                'structured_analysis': None,
+                'timestamp': time.time()
+            })
+        
+        # If hazards detected, send to AnomalAI for structured analysis
+        try:
+            anomalai_prompt = f"""You are AnomalAI, an AI safety assistant. 
+Your purpose is to analyze workplace images or descriptions and generate concise, neutral safety observations. 
+Always be factual and only describe hazards that are clearly mentioned in the input. 
+Each distinct hazard must map to its own observation with fields for label, severity, reasons, actions, tags, actors, timeframe, and frames. 
+Also generate a brief natural description of the unsafe scene and a summary report with counts of low, medium, and high hazards. 
+Do not include irrelevant commentary, do not fabricate hazards, and do not reference policies or external documents.
+
+You are AnomalAI, an assistant that turns workplace safety image descriptions into structured safety observations.
+
+INPUT: <<<{initial_analysis}>>>
+
+TASK:
+1. Read the text carefully and extract each distinct hazard as a separate observation.
+2. For each observation, output:
+   - label: a short snake_case identifier (e.g., improper_ladder_storage, cluttered_walkway, loose_wires).
+   - severity: choose one of "low", "medium", or "high" based on the hazard's risk.
+   - reasons: 1–3 short bullet phrases explaining why it is unsafe.
+   - actions: 1–3 short recommended corrective actions.
+   - tags: 2–5 short keywords.
+   - actors: list of entities involved (e.g., ["person#1", "forklift#7"]). If none mentioned, return an empty list.
+   - timeframe: set to "image" (since this came from a still photo).
+   - frames: set to "f0001".
+
+OUTPUT:
+- First, give a concise 2–3 line natural description of what is unsafe overall.
+- Then output the JSON for the report object and an array of observations as described above.
+
+RULES:
+- Be factual and neutral; do not invent hazards that are not present in the input.
+- Do not add extra commentary beyond the description + JSON."""
+
+            anomalai_response = gemini_model.generate_content(anomalai_prompt)
+            structured_analysis = anomalai_response.text
+            
+        except Exception as e:
+            print(f"AnomalAI analysis failed: {e}")
+            # Fall back to original analysis if AnomalAI fails
+            structured_analysis = None
+        
+        return jsonify({
+            'success': True,
+            'gemini_analysis': initial_analysis,
+            'structured_analysis': structured_analysis,
+            'timestamp': time.time()
+        })
+        
+    except Exception as e:
+        print(f"Error in image Gemini analysis: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Failed to analyze image with Gemini'}), 500
+
+@app.route('/api/generate_formal_report', methods=['POST'])
+def generate_formal_report():
+    """Generate a formal safety report using RAG system from existing observations"""
+    try:
+        data = request.get_json()
+        report_id = data.get('report_id')
+        
+        if not report_id:
+            return jsonify({'error': 'Missing report_id'}), 400
+        
+        # Check if RAG system is available
+        if not is_rag_available():
+            return jsonify({'error': 'RAG system not available. Please ensure all dependencies are installed.'}), 500
+        
+        # Get the original report from database
+        if not supabase_db_manager.is_available():
+            return jsonify({'error': 'Database not available'}), 500
+        
+        original_report = supabase_db_manager.get_report(report_id)
+        if not original_report:
+            return jsonify({'error': 'Report not found'}), 404
+        
+        # Extract observations data
+        observations_data = None
+        if 'observations' in original_report and original_report['observations']:
+            observations_data = original_report['observations']
+        elif 'description' in original_report and original_report['description']:
+            # Try to parse from description column (workaround)
+            try:
+                import json
+                observations_data = json.loads(original_report['description'])
+            except json.JSONDecodeError:
+                return jsonify({'error': 'No valid observations data found in report'}), 400
+        else:
+            return jsonify({'error': 'No observations data found in report'}), 400
+        
+        # Generate formal safety report using RAG
+        print(f"Generating formal report for report_id: {report_id}")
+        formal_report_content = generate_formal_safety_report(observations_data)
+        
+        if not formal_report_content or "Error generating" in formal_report_content:
+            return jsonify({'error': f'Failed to generate formal report: {formal_report_content}'}), 500
+        
+        # Create formal report in database
+        try:
+            formal_report_id = supabase_db_manager.create_formal_report(
+                report_id=report_id,
+                video_duration=original_report['video_duration'],
+                video_captured_at=datetime.fromisoformat(original_report['video_captured_at'].replace('Z', '+00:00')),
+                video_device_type=original_report['video_device_type'],
+                total_observations=original_report['total_observations'],
+                low=original_report['low'],
+                medium=original_report['medium'],
+                high=original_report['high'],
+                formal_report_content=formal_report_content
+            )
+            
+            return jsonify({
+                'success': True,
+                'formal_report_id': formal_report_id,
+                'formal_report_content': formal_report_content,
+                'generated_at': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            print(f"Error creating formal report in database: {e}")
+            return jsonify({
+                'success': True,
+                'formal_report_id': None,
+                'formal_report_content': formal_report_content,
+                'generated_at': datetime.now().isoformat(),
+                'warning': 'Formal report generated but not saved to database'
+            })
+        
+    except Exception as e:
+        print(f"Error in formal report generation: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Failed to generate formal report'}), 500
+
+@app.route('/api/get_formal_report/<formal_report_id>', methods=['GET'])
+def get_formal_report(formal_report_id):
+    """Retrieve a formal report from the database"""
+    try:
+        if not supabase_db_manager.is_available():
+            return jsonify({'error': 'Database not available'}), 500
+        
+        formal_report = supabase_db_manager.get_formal_report(formal_report_id)
+        if not formal_report:
+            return jsonify({'error': 'Formal report not found'}), 404
+        
+        return jsonify({
+            'success': True,
+            'formal_report': formal_report
+        })
+        
+    except Exception as e:
+        print(f"Error retrieving formal report: {e}")
+        return jsonify({'error': 'Failed to retrieve formal report'}), 500
+
+@app.route('/api/analyze_video', methods=['POST'])
+def analyze_video():
+    """Analyze every 30th frame of a video with depth maps, segmentation, and classification"""
+    try:
+        data = request.get_json()
+        video_id = data.get('video_id')
+        frame_interval = data.get('frame_interval', 30)  # Default to every 30th frame
+        
+        print(f"Video analysis request: video_id={video_id}, frame_interval={frame_interval}")
+        
+        if not video_id:
+            return jsonify({'error': 'No video ID provided'}), 400
+        
+        # Get video metadata
+        video_metadata = get_video_metadata(video_id)
+        if not video_metadata:
+            print(f"Video metadata not found for video_id: {video_id}")
+            return jsonify({'error': 'Video not found'}), 404
+        
+        # Get the actual extracted frames (every 7th frame from original video)
+        extracted_frames = video_metadata.get('extracted_frames', 0)
+        print(f"Video metadata: extracted_frames={extracted_frames}")
+        
+        if extracted_frames == 0:
+            return jsonify({'error': 'No extracted frames found in video'}), 400
+        
+        # Calculate frames to process from the extracted frames (every 30th frame from extracted frames)
+        # So if we have frames 0-106 (107 frames), we want frames 0, 30, 60, 90
+        frames_to_process = list(range(0, extracted_frames, frame_interval))
+        total_frames_to_process = len(frames_to_process)
+        
+        print(f"Processing {total_frames_to_process} frames from {extracted_frames} extracted frames")
+        print(f"Frame indices to process: {frames_to_process}")
+        
+        print(f"Starting video analysis: {total_frames_to_process} frames to process (every {frame_interval}th extracted frame)")
+        
+        # Initialize results
+        analysis_results = {
+            'video_id': video_id,
+            'total_extracted_frames': extracted_frames,
+            'frames_processed': total_frames_to_process,
+            'frame_interval': frame_interval,
+            'frames': [],
+            'processing_times': {
+                'total_time': 0,
+                'average_per_frame': 0,
+                'per_frame_times': []
+            },
+            'summary': {
+                'total_objects': 0,
+                'dangerous_objects': 0,
+                'safe_objects': 0,
+                'unique_labels': set()
+            }
+        }
+        
+        start_time = time.time()
+        
+        # Process each frame
+        for i, frame_number in enumerate(frames_to_process):
+            frame_start_time = time.time()
+            
+            try:
+                # Get frame info
+                frame_info = get_video_frame(video_id, frame_number)
+                if not frame_info:
+                    print(f"Could not load frame {frame_number}")
+                    continue
+                
+                # Extract the actual file path from the frame info
+                frame_path = frame_info.get('path')
+                if not frame_path:
+                    print(f"No path found for frame {frame_number}")
+                    continue
+                
+                # Process frame with segmentation and depth
+                print(f"Processing frame {frame_number}...")
+                frame_result = process_single_frame_analysis(frame_path, frame_number)
+                
+                if frame_result:
+                    analysis_results['frames'].append(frame_result)
+                    print(f"Frame {frame_number} processed successfully with {frame_result.get('object_count', 0)} objects")
+                    
+                    # Update summary
+                    if 'objects' in frame_result:
+                        analysis_results['summary']['total_objects'] += len(frame_result['objects'])
+                        for obj in frame_result['objects']:
+                            analysis_results['summary']['unique_labels'].add(obj.get('label', 'unknown'))
+                            if obj.get('safety', {}).get('is_dangerous', False):
+                                analysis_results['summary']['dangerous_objects'] += 1
+                            else:
+                                analysis_results['summary']['safe_objects'] += 1
+                else:
+                    print(f"Frame {frame_number} processing failed")
+                
+                frame_time = time.time() - frame_start_time
+                analysis_results['processing_times']['per_frame_times'].append(frame_time)
+                
+                print(f"Processed frame {frame_number}/{extracted_frames-1} ({i+1}/{total_frames_to_process}) - {frame_time:.2f}s")
+                
+            except Exception as e:
+                print(f"Error processing frame {frame_number}: {e}")
+                continue
+        
+        # Calculate final timing
+        total_time = time.time() - start_time
+        analysis_results['processing_times']['total_time'] = total_time
+        analysis_results['processing_times']['average_per_frame'] = total_time / total_frames_to_process if total_frames_to_process > 0 else 0
+        
+        # Convert set to list for JSON serialization
+        analysis_results['summary']['unique_labels'] = list(analysis_results['summary']['unique_labels'])
+        
+        print(f"Video analysis complete: {total_time:.2f}s total, {analysis_results['processing_times']['average_per_frame']:.2f}s per frame")
+        
+        # Store results for JSON download
+        global video_analysis_results
+        video_analysis_results[video_id] = analysis_results
+        
+        # Store initial report in database
+        if supabase_db_manager.is_available():
+            try:
+                # Get video metadata for database storage
+                video_metadata = get_video_metadata(video_id)
+                video_duration = video_metadata.get('duration_seconds', 0)
+                video_captured_at = datetime.now()  # Use current time as captured time
+                
+                # Create report in database
+                report_id = supabase_db_manager.create_report(
+                    video_id=video_id,
+                    video_duration=video_duration,
+                    video_captured_at=video_captured_at,
+                    video_device_type="smart glasses"
+                )
+                
+                # Store report_id in analysis results for later use
+                analysis_results['report_id'] = report_id
+                print(f"Report created in Supabase: {report_id}")
+                
+            except Exception as e:
+                print(f"Error storing report in Supabase: {e}")
+                # Don't fail the entire request if database storage fails
+                analysis_results['report_id'] = None
+        else:
+            print("Supabase not available - skipping report creation")
+            analysis_results['report_id'] = None
+        
+        return jsonify(analysis_results)
+        
+    except Exception as e:
+        print(f"Video analysis error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/static/<path:filename>')
 def static_files(filename):
@@ -1610,6 +2642,9 @@ if __name__ == '__main__':
     
     # Initialize CLIP model for classification
     clip_loaded = initialize_clip()
+    
+    # Initialize Gemini model for safety analysis
+    gemini_loaded = initialize_gemini()
     
     if sam_loaded and depth_loaded:
         app.run(debug=True, host='0.0.0.0', port=5000)

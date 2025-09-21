@@ -579,12 +579,15 @@
             transform: translate(-50%, -50%);
             width: 500px;
             max-width: 90vw;
+            height: 80vh;
             max-height: 80vh;
             background: white;
             border-radius: 12px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.3);
             z-index: 1000;
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
         }
         
         .coordinate-header {
@@ -721,8 +724,722 @@
             justify-content: center;
         }
         
+        /* Safety classification styles */
+        .coordinate-item.dangerous {
+            border-left: 4px solid #dc3545;
+            background: linear-gradient(135deg, #fff5f5 0%, #ffffff 100%);
+        }
+        
+        .coordinate-item.safe {
+            border-left: 4px solid #28a745;
+            background: linear-gradient(135deg, #f8fff8 0%, #ffffff 100%);
+        }
+        
+        .safety-detail {
+            background: rgba(0,0,0,0.05);
+            border-radius: 6px;
+            padding: 8px;
+            margin: 5px 0;
+        }
+        
+        .safety-detail .coordinate-detail-label {
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .safety-detail .coordinate-detail-value {
+            font-size: 1.1em;
+        }
+        
+        .safety-status {
+            display: flex;
+            align-items: center;
+            margin-left: 10px;
+        }
+        
+        .safety-indicator {
+            background: linear-gradient(135deg, #ff6b35, #f7931e);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            box-shadow: 0 2px 4px rgba(255, 107, 53, 0.3);
+        }
+        
         .coordinate-actions .btn {
             margin: 0;
+        }
+        
+        /* Video Analysis Styles */
+        .video-analysis-progress {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 500px;
+            max-width: 90vw;
+            max-height: 60vh;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            z-index: 1000;
+            overflow: hidden;
+        }
+        
+        .video-analysis-results {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            bottom: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            z-index: 1000;
+            overflow: visible;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .progress-header, .results-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .progress-header h3, .results-header h3 {
+            margin: 0;
+            font-size: 1.3em;
+        }
+        
+        .results-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .results-actions .btn {
+            padding: 8px 16px;
+            font-size: 0.9em;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .results-actions .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .results-actions .btn-success:hover {
+            background: #218838;
+            transform: translateY(-1px);
+        }
+        
+        .results-actions .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        
+        .results-actions .btn-warning:hover {
+            background: #e0a800;
+            transform: translateY(-1px);
+        }
+        
+        /* Gemini Results Styles */
+        .gemini-results {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .gemini-results h4 {
+            color: #495057;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #ffc107;
+            padding-bottom: 10px;
+        }
+        
+        .gemini-summary {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .gemini-frames {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-height: none; /* Allow natural height */
+        }
+        
+        .gemini-frame {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .gemini-frame h5 {
+            color: #495057;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        
+        .gemini-analysis {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #17a2b8;
+        }
+        
+        .gemini-analysis pre {
+            margin: 0;
+            white-space: pre-wrap;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 0.95em;
+            line-height: 1.5;
+            color: #495057;
+        }
+        
+        .detected-objects {
+            background: #fff3cd;
+            border-radius: 6px;
+            padding: 15px;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .detected-objects h6 {
+            color: #856404;
+            margin-bottom: 10px;
+            font-size: 1em;
+        }
+        
+        .detected-objects ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .detected-objects li {
+            margin-bottom: 8px;
+            color: #856404;
+        }
+
+        /* Gemini Image Analysis Results */
+        .gemini-image-results {
+            background: white;
+            border: 2px solid #17a2b8;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            margin: 20px 0;
+            overflow: hidden;
+            display: none;
+        }
+
+        .gemini-image-header {
+            background: linear-gradient(135deg, #17a2b8, #138496);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .gemini-image-header h4 {
+            margin: 0;
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+
+        .gemini-image-content {
+            padding: 20px;
+        }
+
+        .gemini-analysis-text h5 {
+            color: #333;
+            margin: 0 0 15px 0;
+            font-size: 1em;
+            font-weight: 600;
+        }
+
+        .analysis-content {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #17a2b8;
+        }
+
+        .analysis-content .no-hazards {
+            color: #28a745;
+            font-weight: 500;
+            margin: 0;
+            font-style: italic;
+        }
+
+        .analysis-content .hazards-list {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .analysis-content .hazards-list li {
+            margin: 8px 0;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+            color: #dc3545;
+            font-weight: 500;
+        }
+
+        .analysis-content .hazards-list li:last-child {
+            border-bottom: none;
+        }
+
+        /* AnomalAI Structured Analysis Styles */
+        .anomalai-description {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196f3;
+        }
+
+        .anomalai-description h5 {
+            color: #1976d2;
+            margin: 0 0 10px 0;
+            font-size: 1em;
+            font-weight: 600;
+        }
+
+        .anomalai-description p {
+            margin: 0;
+            color: #333;
+            line-height: 1.5;
+        }
+
+        .anomalai-summary {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #dee2e6;
+        }
+
+        .anomalai-summary h5 {
+            color: #495057;
+            margin: 0 0 15px 0;
+            font-size: 1em;
+            font-weight: 600;
+        }
+
+        .summary-stats {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .summary-stat {
+            background: white;
+            padding: 12px 16px;
+            border-radius: 6px;
+            text-align: center;
+            min-width: 80px;
+            border: 2px solid transparent;
+        }
+
+        .summary-stat.high {
+            border-color: #dc3545;
+        }
+
+        .summary-stat.medium {
+            border-color: #ffc107;
+        }
+
+        .summary-stat.low {
+            border-color: #28a745;
+        }
+
+        .stat-count {
+            display: block;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .stat-label {
+            display: block;
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .anomalai-observations h5 {
+            color: #495057;
+            margin: 0 0 15px 0;
+            font-size: 1em;
+            font-weight: 600;
+        }
+
+        .observations-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .observation-item {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            border: 1px solid #dee2e6;
+            border-left: 4px solid #6c757d;
+        }
+
+        .observation-item.high {
+            border-left-color: #dc3545;
+            background: #fff5f5;
+        }
+
+        .observation-item.medium {
+            border-left-color: #ffc107;
+            background: #fffbf0;
+        }
+
+        .observation-item.low {
+            border-left-color: #28a745;
+            background: #f8fff8;
+        }
+
+        .observation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .observation-header h6 {
+            margin: 0;
+            color: #333;
+            font-size: 1em;
+            font-weight: 600;
+            text-transform: capitalize;
+        }
+
+        .severity-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .severity-badge.high {
+            background: #dc3545;
+            color: white;
+        }
+
+        .severity-badge.medium {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .severity-badge.low {
+            background: #28a745;
+            color: white;
+        }
+
+        .observation-details {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .detail-section {
+            font-size: 0.9em;
+        }
+
+        .detail-section strong {
+            color: #495057;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .detail-section ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .detail-section li {
+            margin: 2px 0;
+            color: #666;
+        }
+
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .tag {
+            background: #e9ecef;
+            color: #495057;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.8em;
+        }
+
+        /* Video Frame Analysis Styles */
+        .frame-analysis {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            max-height: none; /* Allow natural height */
+        }
+
+        .anomalai-frame-analysis {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            border: 1px solid #dee2e6;
+        }
+
+        .anomalai-frame-analysis .anomalai-description {
+            margin-bottom: 15px;
+        }
+
+        .anomalai-frame-analysis .anomalai-summary {
+            margin-bottom: 15px;
+        }
+
+        .anomalai-frame-analysis .anomalai-observations {
+            margin-bottom: 0;
+        }
+
+        .anomalai-frame-analysis .observations-list {
+            gap: 10px;
+        }
+
+        .anomalai-frame-analysis .observation-item {
+            padding: 12px;
+        }
+        
+        .progress-content {
+            padding: 20px;
+            max-height: 40vh;
+            overflow-y: auto;
+        }
+        
+        .results-content {
+            padding: 20px;
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 0; /* Ensure proper flex behavior */
+            max-height: calc(100vh - 200px); /* Ensure it doesn't exceed viewport */
+            scroll-behavior: smooth; /* Smooth scrolling */
+        }
+        
+        .progress-bar-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .progress-bar {
+            flex: 1;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        
+        .progress-text {
+            font-weight: 600;
+            color: #495057;
+            min-width: 40px;
+        }
+        
+        .timing-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .timing-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        
+        .timing-label {
+            color: #6c757d;
+            font-weight: 500;
+        }
+        
+        .timing-value {
+            color: #495057;
+            font-weight: 600;
+            font-family: monospace;
+        }
+        
+        .results-summary {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .summary-stat {
+            text-align: center;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .summary-stat-value {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #495057;
+        }
+        
+        .summary-stat-label {
+            font-size: 0.85em;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        
+        .frame-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            min-height: 0; /* Ensure proper flex behavior */
+            max-height: calc(100vh - 300px); /* Ensure it doesn't exceed viewport */
+            scroll-behavior: smooth; /* Smooth scrolling */
+        }
+        
+        .frame-item {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .frame-header {
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .frame-number {
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .frame-object-count {
+            background: #007bff;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+        }
+        
+        .frame-images {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 2px;
+        }
+        
+        .frame-image {
+            width: 100%;
+            height: 80px;
+            object-fit: cover;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .frame-image:hover {
+            transform: scale(1.05);
+        }
+        
+        .frame-objects {
+            padding: 10px 15px;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+        
+        .frame-object {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 3px 0;
+            border-bottom: 1px solid #f8f9fa;
+        }
+        
+        .frame-object:last-child {
+            border-bottom: none;
+        }
+        
+        .object-label {
+            font-size: 0.9em;
+            color: #495057;
+        }
+        
+        .object-confidence {
+            font-size: 0.8em;
+            color: #6c757d;
+            font-family: monospace;
+        }
+        
+        .object-safety {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-left: 5px;
+        }
+        
+        .safety-dangerous {
+            background: #dc3545;
+        }
+        
+        .safety-safe {
+            background: #28a745;
         }
     </style>
 </head>
@@ -814,10 +1531,72 @@
                 </div>
             </div>
 
+            <!-- Video Analysis Progress -->
+            <div class="video-analysis-progress" id="videoAnalysisProgress" style="display: none;">
+                <div class="progress-header">
+                    <h3>🎬 Video Analysis Progress</h3>
+                    <button class="close-btn" onclick="closeVideoAnalysisProgress()">×</button>
+                </div>
+                <div class="progress-content">
+                    <div class="progress-info">
+                        <div class="progress-stats">
+                            <span id="progressStats">Processing frames...</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" id="progressBar">
+                                <div class="progress-fill" id="progressFill"></div>
+                            </div>
+                            <span class="progress-text" id="progressText">0%</span>
+                        </div>
+                        <div class="timing-info">
+                            <div class="timing-item">
+                                <span class="timing-label">Total Time:</span>
+                                <span class="timing-value" id="totalTime">0s</span>
+                            </div>
+                            <div class="timing-item">
+                                <span class="timing-label">Average per Frame:</span>
+                                <span class="timing-value" id="avgTime">0s</span>
+                            </div>
+                            <div class="timing-item">
+                                <span class="timing-label">Current Frame:</span>
+                                <span class="timing-value" id="currentFrame">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Video Analysis Results -->
+            <div class="video-analysis-results" id="videoAnalysisResults" style="display: none;">
+                <div class="results-header">
+                    <h3>🎬 Video Analysis Results</h3>
+                    <div class="results-actions">
+                        <button class="btn btn-success" onclick="downloadVideoAnalysisJSON()">
+                            📥 Download JSON
+                        </button>
+                        <button class="btn btn-warning" onclick="analyzeWithGemini()">
+                            🤖 Analyze with Gemini
+                        </button>
+                        <button class="close-btn" onclick="closeVideoAnalysisResults()">×</button>
+                    </div>
+                </div>
+                <div class="results-summary" id="resultsSummary">
+                    <!-- Summary will be populated here -->
+                </div>
+                <div class="results-content">
+                    <div class="frame-gallery" id="frameGallery">
+                        <!-- Frame results will be populated here -->
+                    </div>
+                </div>
+            </div>
+
             <!-- Coordinate Dictionary Window -->
             <div class="coordinate-window" id="coordinateWindow" style="display: none;">
                 <div class="coordinate-header">
                     <h3>📍 Object Coordinates & Depth</h3>
+                    <div id="safetyStatus" class="safety-status" style="display: none;">
+                        <span class="safety-indicator">⚠️ Safety Classified</span>
+                    </div>
                     <button class="close-btn" onclick="closeCoordinateWindow()">×</button>
                 </div>
                 <div class="coordinate-content">
@@ -825,6 +1604,7 @@
                         <p><strong>Coordinates are relative to image size (0-1)</strong></p>
                         <p><strong>Depth values are normalized (0-1)</strong></p>
                         <p><strong>Depth colors match the depth map visualization</strong></p>
+                        <p><strong>Safety classification shows if objects are dangerous or safe</strong></p>
                     </div>
                     <div class="coordinate-list" id="coordinateList">
                         <!-- Coordinates will be populated here -->
@@ -861,6 +1641,27 @@
                         📍 Show Object Coordinates
                     </button>
                     <small class="text-muted">View relative coordinates and depth for each segmented object</small>
+                </div>
+                
+        <div class="control-group" id="safetySection" style="display: none;">
+            <button class="btn btn-warning" id="safetyBtn" onclick="classifySafety()">
+                ⚠️ Classify Safety
+            </button>
+            <small class="text-muted">Classify objects as safe or unsafe using AI</small>
+        </div>
+        
+        <div class="control-group" id="geminiImageSection" style="display: none;">
+            <button class="btn btn-info" id="geminiImageBtn" onclick="analyzeImageWithGemini()">
+                🤖 Analyze with Gemini
+            </button>
+            <small class="text-muted">Send current image to Gemini for safety analysis</small>
+        </div>
+                
+                <div class="control-group" id="videoAnalysisSection" style="display: none;">
+                    <button class="btn btn-info" id="videoAnalysisBtn" onclick="analyzeVideo()">
+                        🎬 Analyze Video (Every 30th Extracted Frame)
+                    </button>
+                    <small class="text-muted">Process every 30th frame from the extracted frames with depth maps, segmentation, and classification</small>
                 </div>
                 <div class="control-group">
                     <button class="btn btn-info" id="extractTextBtn" onclick="extractText()" disabled>
@@ -1085,6 +1886,12 @@
                     setupCanvas(img);
                     showImageContainer();
                     showInstructions();
+                    
+                    // Store image data for Gemini analysis
+                    currentImageData = e.target.result.split(',')[1]; // Remove data:image/...;base64, prefix
+                    
+                    // Show Gemini button when image is loaded
+                    document.getElementById('geminiImageSection').style.display = 'block';
                 };
                 img.src = e.target.result;
             };
@@ -1580,10 +2387,14 @@
             // Display the image
             displayResult(base64Image);
             
-            // Show coordinate button if we have coordinates
+            // Show coordinate and safety buttons if we have coordinates
             if (coordinates && coordinates.length > 0) {
                 document.getElementById('coordinateSection').style.display = 'block';
+                document.getElementById('safetySection').style.display = 'block';
             }
+            
+            // Always show Gemini button when we have an image
+            document.getElementById('geminiImageSection').style.display = 'block';
         }
 
 
@@ -1608,6 +2419,7 @@
             document.getElementById('imageContainer').style.display = 'block';
             document.getElementById('controls').style.display = 'block';
             document.getElementById('instructions').style.display = 'block';
+            document.getElementById('videoAnalysisSection').style.display = 'block';
             
             // Update video info
             const videoInfo = document.getElementById('videoInfo');
@@ -2058,10 +2870,20 @@ const depthCtx = depthCanvas.getContext('2d');
 
         // Coordinate window functionality
         let currentCoordinates = null;
+        let safetyResults = null;
+        let currentImageData = null;
+        
+        // Video analysis functionality
+        let videoAnalysisResults = null;
 
         function showCoordinateWindow() {
             if (currentCoordinates && currentCoordinates.length > 0) {
-                displayCoordinates(currentCoordinates);
+                // Check if we have safety results
+                if (safetyResults && safetyResults.classified_objects) {
+                    displayCoordinatesWithSafety(safetyResults.classified_objects);
+                } else {
+                    displayCoordinates(currentCoordinates);
+                }
                 document.getElementById('coordinateWindow').style.display = 'block';
             } else {
                 showError('No coordinate data available. Please run segmentation first.');
@@ -2074,6 +2896,11 @@ const depthCtx = depthCanvas.getContext('2d');
 
         function displayCoordinates(coordinates) {
             const coordinateList = document.getElementById('coordinateList');
+            const safetyStatus = document.getElementById('safetyStatus');
+            
+            // Hide safety status indicator for regular coordinates
+            safetyStatus.style.display = 'none';
+            
             coordinateList.innerHTML = '';
 
             coordinates.forEach((item, index) => {
@@ -2167,6 +2994,756 @@ const depthCtx = depthCanvas.getContext('2d');
             setTimeout(() => {
                 successDiv.remove();
             }, 3000);
+        }
+
+        // Safety classification functionality
+        function classifySafety() {
+            if (!currentCoordinates || currentCoordinates.length === 0) {
+                showError('No coordinate data available. Please run segmentation first.');
+                return;
+            }
+
+            // Show loading state
+            const safetyBtn = document.getElementById('safetyBtn');
+            const originalText = safetyBtn.innerHTML;
+            safetyBtn.innerHTML = '⏳ Classifying...';
+            safetyBtn.disabled = true;
+
+            // Prepare data for safety classification
+            const objectsData = currentCoordinates.map(obj => ({
+                label: obj.label,
+                confidence: obj.confidence,
+                mask_index: obj.mask_index,
+                coordinates: obj.coordinates
+            }));
+
+            // Send request to safety classification API
+            fetch('/api/classify_safety', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    objects: objectsData,
+                    alpha: 0.05
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                // Store safety results
+                safetyResults = data;
+                
+                // Update the coordinate display with safety information
+                displayCoordinatesWithSafety(data.classified_objects);
+                
+                // Show success message
+                showSuccess(`Safety classification complete! Found ${data.dangerous_count} dangerous and ${data.safe_count} safe objects.`);
+                
+                // Update button text
+                safetyBtn.innerHTML = '✅ Safety Classified';
+                safetyBtn.disabled = false;
+            })
+            .catch(error => {
+                console.error('Safety classification error:', error);
+                showError('Safety classification failed: ' + error.message);
+                
+                // Reset button
+                safetyBtn.innerHTML = originalText;
+                safetyBtn.disabled = false;
+            });
+        }
+
+        // Gemini image analysis functionality
+        function analyzeImageWithGemini() {
+            if (!currentImageData) {
+                showError('No image available. Please upload an image first.');
+                return;
+            }
+            
+            const geminiBtn = document.getElementById('geminiImageBtn');
+            const originalText = geminiBtn.innerHTML;
+            geminiBtn.innerHTML = '⏳ Analyzing...';
+            geminiBtn.disabled = true;
+            
+            fetch('/api/analyze_image_with_gemini', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    image: currentImageData
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showError('Gemini analysis failed: ' + data.error);
+                    return;
+                }
+                
+                showSuccess('Gemini analysis completed!');
+                displayGeminiImageResults(data.gemini_analysis, data.structured_analysis);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showError('Gemini analysis failed: ' + error.message);
+            })
+            .finally(() => {
+                geminiBtn.innerHTML = originalText;
+                geminiBtn.disabled = false;
+            });
+        }
+
+        function displayGeminiImageResults(analysis, structuredAnalysis) {
+            // Create or update the Gemini results display
+            let geminiResultsDiv = document.getElementById('geminiImageResults');
+            if (!geminiResultsDiv) {
+                geminiResultsDiv = document.createElement('div');
+                geminiResultsDiv.id = 'geminiImageResults';
+                geminiResultsDiv.className = 'gemini-image-results';
+                
+                // Insert after the coordinate section
+                const coordinateSection = document.getElementById('coordinateSection');
+                coordinateSection.parentNode.insertBefore(geminiResultsDiv, coordinateSection.nextSibling);
+            }
+            
+            // Check if we have structured analysis
+            if (structuredAnalysis) {
+                geminiResultsDiv.innerHTML = `
+                    <div class="gemini-image-header">
+                        <h4>🤖 AnomalAI Safety Analysis</h4>
+                        <button class="close-btn" onclick="closeGeminiImageResults()">×</button>
+                    </div>
+                    <div class="gemini-image-content">
+                        ${formatStructuredAnalysis(structuredAnalysis)}
+                    </div>
+                `;
+            } else {
+                // Fall back to simple analysis display
+                geminiResultsDiv.innerHTML = `
+                    <div class="gemini-image-header">
+                        <h4>🤖 Gemini Safety Analysis</h4>
+                        <button class="close-btn" onclick="closeGeminiImageResults()">×</button>
+                    </div>
+                    <div class="gemini-image-content">
+                        <div class="gemini-analysis-text">
+                            <h5>Safety Hazards Detected:</h5>
+                            <div class="analysis-content">${formatGeminiAnalysis(analysis)}</div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            geminiResultsDiv.style.display = 'block';
+        }
+
+        function formatGeminiAnalysis(analysis) {
+            if (!analysis || analysis.trim() === '') {
+                return '<p class="no-hazards">✅ No safety hazards detected in this image.</p>';
+            }
+            
+            // Convert bullet points to HTML list
+            const lines = analysis.split('\n').filter(line => line.trim() !== '');
+            if (lines.length === 0) {
+                return '<p class="no-hazards">✅ No safety hazards detected in this image.</p>';
+            }
+            
+            const listItems = lines.map(line => {
+                const cleanLine = line.replace(/^[•\-\*]\s*/, '').trim();
+                return `<li>${cleanLine}</li>`;
+            }).join('');
+            
+            return `<ul class="hazards-list">${listItems}</ul>`;
+        }
+
+        function formatStructuredAnalysis(structuredAnalysis) {
+            try {
+                // Try to parse the structured analysis
+                const lines = structuredAnalysis.split('\n');
+                let description = '';
+                let jsonStart = -1;
+                
+                // Find the description and JSON parts
+                for (let i = 0; i < lines.length; i++) {
+                    if (lines[i].trim().startsWith('{') || lines[i].trim().startsWith('[')) {
+                        jsonStart = i;
+                        break;
+                    }
+                    if (lines[i].trim() && !lines[i].trim().startsWith('```')) {
+                        description += lines[i].trim() + ' ';
+                    }
+                }
+                
+                if (jsonStart === -1) {
+                    // Fallback to simple text display
+                    return `
+                        <div class="gemini-analysis-text">
+                            <h5>Safety Analysis:</h5>
+                            <div class="analysis-content">${structuredAnalysis}</div>
+                        </div>
+                    `;
+                }
+                
+                // Extract JSON part
+                const jsonText = lines.slice(jsonStart).join('\n').replace(/```json|```/g, '').trim();
+                const data = JSON.parse(jsonText);
+                
+                let html = '';
+                
+                // Add description
+                if (description.trim()) {
+                    html += `
+                        <div class="anomalai-description">
+                            <h5>Scene Description:</h5>
+                            <p>${description.trim()}</p>
+                        </div>
+                    `;
+                }
+                
+                // Add summary report if available
+                if (data.report) {
+                    const report = data.report;
+                    html += `
+                        <div class="anomalai-summary">
+                            <h5>Hazard Summary:</h5>
+                            <div class="summary-stats">
+                                <div class="summary-stat high">
+                                    <span class="stat-count">${report.high || 0}</span>
+                                    <span class="stat-label">High Severity</span>
+                                </div>
+                                <div class="summary-stat medium">
+                                    <span class="stat-count">${report.medium || 0}</span>
+                                    <span class="stat-label">Medium Severity</span>
+                                </div>
+                                <div class="summary-stat low">
+                                    <span class="stat-count">${report.low || 0}</span>
+                                    <span class="stat-label">Low Severity</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // Add observations
+                if (data.observations && data.observations.length > 0) {
+                    html += `
+                        <div class="anomalai-observations">
+                            <h5>Detailed Observations:</h5>
+                            <div class="observations-list">
+                    `;
+                    
+                    data.observations.forEach((obs, index) => {
+                        const severityClass = obs.severity || 'low';
+                        html += `
+                            <div class="observation-item ${severityClass}">
+                                <div class="observation-header">
+                                    <h6>${obs.label || `Observation ${index + 1}`}</h6>
+                                    <span class="severity-badge ${severityClass}">${severityClass.toUpperCase()}</span>
+                                </div>
+                                <div class="observation-details">
+                                    <div class="detail-section">
+                                        <strong>Reasons:</strong>
+                                        <ul>${(obs.reasons || []).map(r => `<li>${r}</li>`).join('')}</ul>
+                                    </div>
+                                    <div class="detail-section">
+                                        <strong>Recommended Actions:</strong>
+                                        <ul>${(obs.actions || []).map(a => `<li>${a}</li>`).join('')}</ul>
+                                    </div>
+                                    <div class="detail-section">
+                                        <strong>Tags:</strong>
+                                        <span class="tags">${(obs.tags || []).map(t => `<span class="tag">${t}</span>`).join('')}</span>
+                                    </div>
+                                    ${obs.actors && obs.actors.length > 0 ? `
+                                        <div class="detail-section">
+                                            <strong>Actors:</strong>
+                                            <span>${obs.actors.join(', ')}</span>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    html += `
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                return html;
+                
+            } catch (error) {
+                console.error('Error parsing structured analysis:', error);
+                // Fallback to simple text display
+                return `
+                    <div class="gemini-analysis-text">
+                        <h5>Safety Analysis:</h5>
+                        <div class="analysis-content">${structuredAnalysis}</div>
+                    </div>
+                `;
+            }
+        }
+
+        function closeGeminiImageResults() {
+            const geminiResultsDiv = document.getElementById('geminiImageResults');
+            if (geminiResultsDiv) {
+                geminiResultsDiv.style.display = 'none';
+            }
+        }
+
+        function displayCoordinatesWithSafety(coordinates) {
+            const coordinateList = document.getElementById('coordinateList');
+            const safetyStatus = document.getElementById('safetyStatus');
+            
+            // Show safety status indicator
+            safetyStatus.style.display = 'flex';
+            
+            coordinateList.innerHTML = '';
+
+            coordinates.forEach((obj, index) => {
+                const coords = obj.coordinates;
+                const safety = obj.safety || {};
+                
+                const isDangerous = safety.is_dangerous || false;
+                const safetyClass = isDangerous ? 'dangerous' : 'safe';
+                const safetyIcon = isDangerous ? '⚠️' : '✅';
+                const safetyColor = isDangerous ? '#dc3545' : '#28a745';
+                
+                const coordinateItem = document.createElement('div');
+                coordinateItem.className = `coordinate-item ${safetyClass}`;
+                coordinateItem.innerHTML = `
+                    <div class="coordinate-header">
+                        <h4>${safetyIcon} ${obj.label}</h4>
+                        <span class="confidence-badge">${(obj.confidence * 100).toFixed(1)}%</span>
+                    </div>
+                    <div class="coordinate-details">
+                        <div class="coordinate-detail">
+                            <span class="coordinate-detail-label">X (relative):</span>
+                            <span class="coordinate-detail-value">${coords.relative_x || 0}</span>
+                        </div>
+                        <div class="coordinate-detail">
+                            <span class="coordinate-detail-label">Y (relative):</span>
+                            <span class="coordinate-detail-value">${coords.relative_y || 0}</span>
+                        </div>
+                        <div class="coordinate-detail">
+                            <span class="coordinate-detail-label">Z (depth):</span>
+                            <span class="coordinate-detail-value depth-value">
+                                <span class="depth-indicator" style="background-color: ${coords.depth_color || '#808080'};"></span>
+                                ${coords.relative_z || 0}
+                            </span>
+                        </div>
+                        <div class="coordinate-detail">
+                            <span class="coordinate-detail-label">Center X:</span>
+                            <span class="coordinate-detail-value">${coords.center_x || 0}</span>
+                        </div>
+                        <div class="coordinate-detail">
+                            <span class="coordinate-detail-label">Center Y:</span>
+                            <span class="coordinate-detail-value">${coords.center_y || 0}</span>
+                        </div>
+                        <div class="coordinate-detail safety-detail">
+                            <span class="coordinate-detail-label">Safety:</span>
+                            <span class="coordinate-detail-value" style="color: ${safetyColor}; font-weight: bold;">
+                                ${safetyIcon} ${isDangerous ? 'Dangerous' : 'Safe'} (${(safety.confidence * 100).toFixed(1)}%)
+                            </span>
+                        </div>
+                        <div class="coordinate-detail">
+                            <span class="coordinate-detail-label">Danger Score:</span>
+                            <span class="coordinate-detail-value">${safety.dangerous_score || 0}</span>
+                        </div>
+                        <div class="coordinate-detail">
+                            <span class="coordinate-detail-label">Safe Score:</span>
+                            <span class="coordinate-detail-value">${safety.safe_score || 0}</span>
+                        </div>
+                    </div>
+                `;
+                coordinateList.appendChild(coordinateItem);
+            });
+        }
+
+        // Video analysis functions
+        function analyzeVideo() {
+            if (!currentVideoId) {
+                showError('No video available for analysis. Please upload a video first.');
+                return;
+            }
+
+            // Show progress window
+            document.getElementById('videoAnalysisProgress').style.display = 'block';
+            
+            // Reset progress
+            updateProgress(0, 0, 0, 0, 0);
+            
+            // Start analysis
+            fetch('/api/analyze_video', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    video_id: currentVideoId,
+                    frame_interval: 30
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Store results
+                videoAnalysisResults = data;
+                
+                // Hide progress, show results
+                document.getElementById('videoAnalysisProgress').style.display = 'none';
+                displayVideoAnalysisResults(data);
+                
+                showSuccess(`Video analysis complete! Processed ${data.frames_processed} frames in ${data.processing_times.total_time.toFixed(2)}s`);
+            })
+            .catch(error => {
+                console.error('Video analysis error:', error);
+                showError('Video analysis failed: ' + error.message);
+                document.getElementById('videoAnalysisProgress').style.display = 'none';
+            });
+        }
+
+        function updateProgress(current, total, totalTime, avgTime, frameNumber) {
+            const percentage = total > 0 ? (current / total) * 100 : 0;
+            
+            document.getElementById('progressFill').style.width = percentage + '%';
+            document.getElementById('progressText').textContent = Math.round(percentage) + '%';
+            document.getElementById('progressStats').textContent = `Processing frame ${current} of ${total}`;
+            document.getElementById('totalTime').textContent = totalTime.toFixed(1) + 's';
+            document.getElementById('avgTime').textContent = avgTime.toFixed(1) + 's';
+            document.getElementById('currentFrame').textContent = frameNumber;
+        }
+
+        function displayVideoAnalysisResults(data) {
+            // Show results window
+            document.getElementById('videoAnalysisResults').style.display = 'block';
+            
+            // Update summary
+            const summary = data.summary;
+            const processing = data.processing_times;
+            
+            document.getElementById('resultsSummary').innerHTML = `
+                <div class="summary-stats">
+                    <div class="summary-stat">
+                        <div class="summary-stat-value">${data.frames_processed}</div>
+                        <div class="summary-stat-label">Frames Processed</div>
+                    </div>
+                    <div class="summary-stat">
+                        <div class="summary-stat-value">${data.total_extracted_frames}</div>
+                        <div class="summary-stat-label">Total Extracted Frames</div>
+                    </div>
+                    <div class="summary-stat">
+                        <div class="summary-stat-value">${summary.total_objects}</div>
+                        <div class="summary-stat-label">Total Objects</div>
+                    </div>
+                    <div class="summary-stat">
+                        <div class="summary-stat-value">${summary.dangerous_objects}</div>
+                        <div class="summary-stat-label">Dangerous</div>
+                    </div>
+                    <div class="summary-stat">
+                        <div class="summary-stat-value">${summary.safe_objects}</div>
+                        <div class="summary-stat-label">Safe</div>
+                    </div>
+                    <div class="summary-stat">
+                        <div class="summary-stat-value">${processing.total_time.toFixed(1)}s</div>
+                        <div class="summary-stat-label">Total Time</div>
+                    </div>
+                    <div class="summary-stat">
+                        <div class="summary-stat-value">${processing.average_per_frame.toFixed(1)}s</div>
+                        <div class="summary-stat-label">Avg per Frame</div>
+                    </div>
+                </div>
+            `;
+            
+            // Display frames
+            const frameGallery = document.getElementById('frameGallery');
+            frameGallery.innerHTML = '';
+            
+            data.frames.forEach((frame, index) => {
+                const frameItem = document.createElement('div');
+                frameItem.className = 'frame-item';
+                
+                const objectsHtml = frame.objects.map(obj => `
+                    <div class="frame-object">
+                        <span class="object-label">${obj.label}</span>
+                        <div style="display: flex; align-items: center;">
+                            <span class="object-confidence">${(obj.confidence * 100).toFixed(1)}%</span>
+                            <span class="object-safety ${obj.safety.is_dangerous ? 'safety-dangerous' : 'safety-safe'}"></span>
+                        </div>
+                    </div>
+                `).join('');
+                
+                frameItem.innerHTML = `
+                    <div class="frame-header">
+                        <span class="frame-number">Frame ${frame.frame_number}</span>
+                        <span class="frame-object-count">${frame.object_count} objects</span>
+                    </div>
+                    <div class="frame-images">
+                        <img class="frame-image" src="data:image/jpeg;base64,${frame.original_image}" 
+                             onclick="showFrameImage('${frame.original_image}', 'Original')" 
+                             title="Original Frame">
+                        <img class="frame-image" src="data:image/png;base64,${frame.segmented_image}" 
+                             onclick="showFrameImage('${frame.segmented_image}', 'Segmented')" 
+                             title="Segmented Frame">
+                        <img class="frame-image" src="data:image/png;base64,${frame.depth_image}" 
+                             onclick="showFrameImage('${frame.depth_image}', 'Depth Map')" 
+                             title="Depth Map">
+                    </div>
+                    <div class="frame-objects">
+                        ${objectsHtml}
+                    </div>
+                `;
+                
+                frameGallery.appendChild(frameItem);
+            });
+        }
+
+        function showFrameImage(base64Image, title) {
+            // Create a modal to show the full-size image
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.8);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 2000;
+                cursor: pointer;
+            `;
+            
+            const img = document.createElement('img');
+            img.src = `data:image/png;base64,${base64Image}`;
+            img.style.cssText = `
+                max-width: 90%;
+                max-height: 90%;
+                object-fit: contain;
+                border-radius: 8px;
+            `;
+            
+            const titleDiv = document.createElement('div');
+            titleDiv.textContent = title;
+            titleDiv.style.cssText = `
+                position: absolute;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                color: white;
+                font-size: 1.2em;
+                font-weight: 600;
+                background: rgba(0,0,0,0.7);
+                padding: 10px 20px;
+                border-radius: 20px;
+            `;
+            
+            modal.appendChild(titleDiv);
+            modal.appendChild(img);
+            document.body.appendChild(modal);
+            
+            modal.onclick = () => {
+                document.body.removeChild(modal);
+            };
+        }
+
+        function closeVideoAnalysisProgress() {
+            document.getElementById('videoAnalysisProgress').style.display = 'none';
+        }
+
+        function closeVideoAnalysisResults() {
+            document.getElementById('videoAnalysisResults').style.display = 'none';
+        }
+        
+        function downloadVideoAnalysisJSON() {
+            if (!currentVideoId) {
+                showError('No video selected for analysis');
+                return;
+            }
+            
+            if (!videoAnalysisResults) {
+                showError('No analysis results available. Please run video analysis first.');
+                return;
+            }
+            
+            // Show loading state
+            const downloadBtn = document.querySelector('.results-actions .btn-success');
+            const originalText = downloadBtn.innerHTML;
+            downloadBtn.innerHTML = '⏳ Generating...';
+            downloadBtn.disabled = true;
+            
+            fetch('/api/download_video_analysis_json', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    video_id: currentVideoId
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                // Create download link
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `video_analysis_${currentVideoId}.json`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                showSuccess('JSON file downloaded successfully!');
+            })
+            .catch(error => {
+                console.error('Error downloading JSON:', error);
+                showError('Failed to download JSON file: ' + error.message);
+            })
+            .finally(() => {
+                // Reset button state
+                downloadBtn.innerHTML = originalText;
+                downloadBtn.disabled = false;
+            });
+        }
+        
+        function analyzeWithGemini() {
+            if (!currentVideoId) {
+                showError('No video selected for analysis');
+                return;
+            }
+            
+            if (!videoAnalysisResults) {
+                showError('No analysis results available. Please run video analysis first.');
+                return;
+            }
+            
+            // Show loading state
+            const geminiBtn = document.querySelector('.results-actions .btn-warning');
+            const originalText = geminiBtn.innerHTML;
+            geminiBtn.innerHTML = '⏳ Analyzing...';
+            geminiBtn.disabled = true;
+            
+            fetch('/api/analyze_video_with_gemini', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    video_id: currentVideoId
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Display Gemini analysis results
+                displayGeminiResults(data);
+                showSuccess('Gemini analysis completed successfully!');
+            })
+            .catch(error => {
+                console.error('Error with Gemini analysis:', error);
+                showError('Failed to analyze with Gemini: ' + error.message);
+            })
+            .finally(() => {
+                // Reset button state
+                geminiBtn.innerHTML = originalText;
+                geminiBtn.disabled = false;
+            });
+        }
+        
+        function displayGeminiResults(data) {
+            const resultsContent = document.querySelector('.results-content');
+            
+            // Create Gemini results section
+            let geminiHTML = `
+                <div class="gemini-results">
+                    <h4>🤖 AnomalAI Video Safety Analysis</h4>
+                    <div class="gemini-summary">
+                        <p><strong>Unsafe Frames Analyzed:</strong> ${data.unsafe_frames_count}</p>
+                        ${data.video_metadata ? `
+                            <p><strong>Video Duration:</strong> ${Math.round(data.video_metadata.duration_seconds || 0)}s</p>
+                            <p><strong>Total Frames:</strong> ${data.video_metadata.total_frames || 0}</p>
+                            <p><strong>Extracted Frames:</strong> ${data.video_metadata.extracted_frames || 0}</p>
+                        ` : ''}
+                    </div>
+                    <div class="gemini-frames">
+            `;
+            
+            // Display each frame's analysis
+            data.gemini_analyses.forEach(analysis => {
+                geminiHTML += `
+                    <div class="gemini-frame">
+                        <h5>Frame ${analysis.frame_number}</h5>
+                        <div class="frame-analysis">
+                `;
+                
+                // Show structured analysis if available
+                if (analysis.structured_analysis) {
+                    geminiHTML += `
+                        <div class="anomalai-frame-analysis">
+                            ${formatStructuredAnalysis(analysis.structured_analysis)}
+                        </div>
+                    `;
+                } else if (analysis.initial_analysis) {
+                    // Fallback to simple analysis
+                    geminiHTML += `
+                        <div class="gemini-analysis">
+                            <h6>Safety Analysis:</h6>
+                            <pre>${analysis.initial_analysis}</pre>
+                        </div>
+                    `;
+                }
+                
+                // Show detected unsafe objects
+                if (analysis.objects && analysis.objects.length > 0) {
+                    geminiHTML += `
+                        <div class="detected-objects">
+                            <h6>Detected Unsafe Objects:</h6>
+                            <ul>
+                    `;
+                    analysis.objects.forEach(obj => {
+                        geminiHTML += `
+                            <li>
+                                <strong>${obj.label}</strong> (${obj.confidence.toFixed(2)})
+                                - ${obj.safety.classification} (${obj.safety.confidence.toFixed(2)})
+                            </li>
+                        `;
+                    });
+                    geminiHTML += `
+                            </ul>
+                        </div>
+                    `;
+                }
+                
+                geminiHTML += `
+                        </div>
+                    </div>
+                `;
+            });
+            
+            geminiHTML += `
+                    </div>
+                </div>
+            `;
+            
+            // Add to results content (prepend to show at top)
+            resultsContent.insertAdjacentHTML('afterbegin', geminiHTML);
         }
 
     </script>
