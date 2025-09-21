@@ -2647,7 +2647,7 @@ if __name__ == '__main__':
     gemini_loaded = initialize_gemini()
     
     if sam_loaded and depth_loaded:
-        app.run(debug=True, host='0.0.0.0', port=5000)
+        app.run(debug=True, host='0.0.0.0', port=5004)
     else:
         if not sam_loaded:
             print("Failed to initialize SAM2 model. Please check model paths.")
