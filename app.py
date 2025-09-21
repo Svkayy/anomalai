@@ -2083,7 +2083,7 @@ def analyze_video_with_gemini():
                     initial_prompt = """Analyze this image for workplace safety hazards. Output rules: Return up to 4–5 bullet points maximum. Each bullet point must describe a distinct hazard, stated factually and neutrally. Identify both obvious risks (e.g., missing PPE, vehicle proximity, exposed machinery) and subtle risks (e.g., dangling wires, misplaced objects, obstructed walkways, poor visibility). Do not include headers, labels, or commentary. If no hazards are visible, return nothing. Do not invent hazards not supported by the image."""
                     
                     initial_response = gemini_model.generate_content([initial_prompt, image])
-                    initial_analysis = initial_response.text
+                    initial_analysis = initial_response.candidates[0].content.parts[0].text
                     
                     if initial_analysis and initial_analysis.strip():
                         # Generate AnomalAI structured analysis
@@ -2119,7 +2119,7 @@ RULES:
 - Do not add extra commentary beyond the description + JSON."""
 
                         anomalai_response = gemini_model.generate_content(anomalai_prompt)
-                        structured_analysis = anomalai_response.text
+                        structured_analysis = anomalai_response.candidates[0].content.parts[0].text
                         
                         gemini_analyses.append({
                             "frame_number": frame_number,
@@ -2307,7 +2307,7 @@ def analyze_image_with_gemini():
         # Send to Gemini for initial hazard detection
         try:
             response = gemini_model.generate_content([prompt, image])
-            initial_analysis = response.text
+            initial_analysis = response.candidates[0].content.parts[0].text
         except Exception as e:
             return jsonify({'error': f'Gemini analysis failed: {str(e)}'}), 500
         
@@ -2354,7 +2354,7 @@ RULES:
 - Do not add extra commentary beyond the description + JSON."""
 
             anomalai_response = gemini_model.generate_content(anomalai_prompt)
-            structured_analysis = anomalai_response.text
+            structured_analysis = anomalai_response.candidates[0].content.parts[0].text
             
         except Exception as e:
             print(f"AnomalAI analysis failed: {e}")

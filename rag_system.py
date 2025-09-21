@@ -192,7 +192,7 @@ Please generate a comprehensive formal safety report based on the observations p
         
         # Generate the report using Gemini
         response = gemini_model.generate_content(prompt)
-        return response.text
+        return response.candidates[0].content.parts[0].text
         
     except Exception as e:
         print(f"[rag_system.py] Error generating formal report: {e}")
