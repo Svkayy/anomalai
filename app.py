@@ -1,5 +1,9 @@
 from flask import Flask, render_template, request, jsonify, send_file, make_response
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 import uuid
 import base64
 from PIL import Image
@@ -432,35 +436,30 @@ def generate_workplace_vocabulary():
     WORKPLACE_ITEMS = [
         # Furniture & Workspace
         "chair", "desk", "table", "floor", "wall", "ceiling", "door", "window",
-        "shelf", "shelving", "cabinet", "drawer", "counter", "workstation",
+        "shelf", "cabinet", "counter",
         
         # Tools & Equipment
-        "ladder", "tools", "hammer", "screwdriver", "wrench", "drill", "saw",
-        "cart", "trolley", "forklift", "crane", "generator", "compressor",
+        "unmanned ladder", "unsecured tools", "unsecured hammer", "unsecured screwdriver", 
         
         # Electrical & Utilities
-        "electrical wiring", "cables", "extension cord", "outlet", "switch",
-        "electrical panel", "conduit", "light", "fan",
+        "open electrical wiring", "loose extension cord", "outlet", "switch",
+        "light", "fan",
         
         # Construction Materials
-        "steel", "concrete", "wood", "plastic", "glass", "metal", "pipe",
-        "beam", "brick", "tile", "drywall", "insulation",
+        "steel", "wood", "pipe", "insulation",
         
         # Safety & Barriers
-        "safety equipment", "helmet", "gloves", "goggles", "vest", "barrier",
-        "handrail", "guardrail", "sign", "marking", "tape", "rope",
+        # "safety equipment", "helmet", "gloves", "goggles", "vest", "barrier",
+        # "handrail", "guardrail", "sign", "marking", "tape", "rope",
         
         # Storage & Containers
-        "box", "container", "bag", "bucket", "drum", "pallet",
-        "cardboard", "packaging", "wrapping",
+        "box", "bag", 
         
         # Machinery & Vehicles
-        "machinery", "equipment", "vehicle", "truck", "tractor", "excavator",
-        "bulldozer", "crane", "scaffolding", "platform",
+        "machinery", "equipment", "scaffolding", "platform",
         
         # General Items
-        "debris", "clutter", "trash", "waste", "material", "supplies",
-        "parts", "components", "hardware", "fixtures"
+        "debris", "clutter", "open trash", "material", "supplies",
     ]
     
     return WORKPLACE_ITEMS
