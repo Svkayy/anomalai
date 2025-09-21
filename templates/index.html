@@ -3476,6 +3476,26 @@ const depthCtx = depthCanvas.getContext('2d');
                         <div class="summary-stat-label">Avg per Frame</div>
                     </div>
                 </div>
+                
+                <!-- Download Segmented Video Section -->
+                ${data.segmented_video_path ? `
+                    <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #007bff;">
+                        <h5 style="margin-bottom: 10px; color: #495057;">📹 Segmented Video</h5>
+                        <p style="margin-bottom: 15px; color: #6c757d; font-size: 0.9em;">
+                            A video showing all analyzed frames with segmentation overlays has been created automatically.
+                        </p>
+                        <button 
+                            class="btn btn-primary" 
+                            onclick="downloadSegmentedVideo('${data.video_id}')"
+                            style="display: inline-flex; align-items: center; gap: 8px;"
+                        >
+                            🎬 Download Segmented Video
+                        </button>
+                        <small style="display: block; margin-top: 8px; color: #6c757d;">
+                            File: ${data.segmented_video_filename || 'segmented_video.mp4'}
+                        </small>
+                    </div>
+                ` : ''}
             `;
             
             // Display frames
@@ -3633,6 +3653,32 @@ const depthCtx = depthCanvas.getContext('2d');
                 downloadBtn.innerHTML = originalText;
                 downloadBtn.disabled = false;
             });
+        }
+        
+        function downloadSegmentedVideo(videoId) {
+            // Show loading state
+            const downloadBtn = event.target;
+            const originalText = downloadBtn.innerHTML;
+            downloadBtn.innerHTML = '⏳ Downloading...';
+            downloadBtn.disabled = true;
+            
+            // Create download link
+            const downloadUrl = `/api/download_segmented_video/${videoId}`;
+            
+            // Create invisible anchor element for download
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            // Reset button state after a short delay
+            setTimeout(() => {
+                downloadBtn.innerHTML = originalText;
+                downloadBtn.disabled = false;
+                showSuccess('Segmented video download started!');
+            }, 1000);
         }
         
         function analyzeWithGemini() {

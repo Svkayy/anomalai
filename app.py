@@ -64,8 +64,8 @@ gemini_model = None
 parallel_config = {
     'max_workers': 4,
     'batch_size': 32,
-    'target_points': 32,  # Reduced from 256 to 32 to avoid over-segmentation
-    'max_masks': 15       # Reduced from 50 to 15 for cleaner results
+    'target_points': 64,  # Increased from 32 for more detailed segmentation
+    'max_masks': 25       # Increased from 15 for more comprehensive detection
 }
 
 def initialize_sam():
@@ -299,8 +299,8 @@ def process_single_frame_analysis(frame_path, frame_number):
                     sam_model=sam_model,
                     filepath=frame_path,
                     original_size=original_size,
-                    target_points=256,  # Higher resolution for video analysis
-                    max_masks=30,       # More masks for detailed video analysis
+                    target_points=parallel_config['target_points'],
+                    max_masks=parallel_config['max_masks'],
                     min_area_frac=0.001,
                     nms_box_thresh=0.7,
                     dup_mask_iou_thresh=0.5,
@@ -453,7 +453,7 @@ def generate_workplace_vocabulary():
         # "handrail", "guardrail", "sign", "marking", "tape", "rope",
         
         # Storage & Containers
-        "box", "bag", 
+        "box",
         
         # Machinery & Vehicles
         "machinery", "equipment", "scaffolding", "platform",
@@ -632,7 +632,7 @@ def process_single_point(point_data):
 
 
 def parallel_grid_segmentation(sam_model, filepath, original_size, 
-                              target_points=256, max_masks=50, 
+                              target_points=64, max_masks=25, 
                               min_area_frac=0.001, min_region_area=None,
                               nms_box_thresh=0.7, dup_mask_iou_thresh=0.5,
                               max_workers=4, batch_size=32):
@@ -1856,8 +1856,8 @@ def configure_parallel():
     parallel_config = {
         'max_workers': data.get('max_workers', 4),
         'batch_size': data.get('batch_size', 32),
-        'target_points': data.get('target_points', 32),
-        'max_masks': data.get('max_masks', 15)
+        'target_points': data.get('target_points', 64),
+        'max_masks': data.get('max_masks', 25)
     }
     
     return jsonify({
@@ -2152,7 +2152,7 @@ RULES:
                 "video_id": video_id,
                 "total_frames": video_metadata.get('total_frames', 0),
                 "extracted_frames": video_metadata.get('extracted_frames', 0),
-                "extraction_frame_interval": video_metadata.get('frame_interval', 7),  # Interval used during video extraction
+                "frame_interval": video_metadata.get('frame_interval', 7),
                 "duration_seconds": video_metadata.get('duration_seconds', 0),
                 "device_type": "smart glasses",
                 "analysis_timestamp": time.time()
@@ -2354,7 +2354,7 @@ RULES:
 - Do not add extra commentary beyond the description + JSON."""
 
             anomalai_response = gemini_model.generate_content(anomalai_prompt)
-            structured_analysis = anomalai_response.candidates[0].content.parts[0].text
+            structured_analysis = anomalai_response.text
             
         except Exception as e:
             print(f"AnomalAI analysis failed: {e}")
@@ -2474,18 +2474,293 @@ def get_formal_report(formal_report_id):
         print(f"Error retrieving formal report: {e}")
         return jsonify({'error': 'Failed to retrieve formal report'}), 500
 
+class ColorTracker:
+    """Tracks object centers across frames to maintain color consistency"""
+    
+    def __init__(self, distance_threshold=50):
+        self.tracked_objects = []  # List of {center: (x, y), color: [r, g, b], last_seen: frame_idx}
+        self.distance_threshold = distance_threshold  # Pixels distance to consider same object
+        self.available_colors = [
+            [255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0],
+            [255, 0, 255], [0, 255, 255], [255, 128, 0], [128, 0, 255],
+            [0, 128, 255], [255, 128, 128], [128, 255, 0], [255, 0, 128],
+            [0, 128, 128], [128, 0, 128], [128, 128, 0], [64, 128, 255],
+            [255, 64, 128], [128, 255, 64], [255, 128, 64], [64, 255, 128]
+        ]
+        self.color_index = 0
+        
+    def get_color_for_center(self, center, frame_idx):
+        """
+        Get consistent color for an object center across frames
+        
+        Args:
+            center: (x, y) tuple of object center
+            frame_idx: Current frame index
+            
+        Returns:
+            [r, g, b] color for this object
+        """
+        # Find closest tracked object within threshold
+        min_distance = float('inf')
+        closest_obj_idx = -1
+        
+        for i, tracked_obj in enumerate(self.tracked_objects):
+            distance = np.sqrt((center[0] - tracked_obj['center'][0])**2 + 
+                             (center[1] - tracked_obj['center'][1])**2)
+            if distance < self.distance_threshold and distance < min_distance:
+                min_distance = distance
+                closest_obj_idx = i
+        
+        if closest_obj_idx >= 0:
+            # Update existing object
+            self.tracked_objects[closest_obj_idx]['center'] = center
+            self.tracked_objects[closest_obj_idx]['last_seen'] = frame_idx
+            return self.tracked_objects[closest_obj_idx]['color']
+        else:
+            # Create new tracked object
+            color = self.available_colors[self.color_index % len(self.available_colors)]
+            self.color_index += 1
+            
+            self.tracked_objects.append({
+                'center': center,
+                'color': color,
+                'last_seen': frame_idx
+            })
+            
+            return color
+    
+    def cleanup_old_objects(self, frame_idx, max_frames_missing=3):
+        """Remove objects that haven't been seen for several frames"""
+        self.tracked_objects = [
+            obj for obj in self.tracked_objects 
+            if frame_idx - obj['last_seen'] <= max_frames_missing
+        ]
+
+
+def create_segmented_video_from_frames(video_id, analysis_results, downloads_path=None):
+    """
+    Create a video from segmented frames with proper timing
+    
+    Args:
+        video_id: ID of the processed video
+        analysis_results: Results from video analysis containing frame data
+        downloads_path: Path to save the video (defaults to user's Downloads folder)
+    
+    Returns:
+        Path to the created video file or None if failed
+    """
+    try:
+        # Get video metadata for timing information
+        video_metadata = get_video_metadata(video_id)
+        if not video_metadata:
+            print(f"Video metadata not found for video_id: {video_id}")
+            return None
+        
+        # Get original video properties
+        original_fps = video_metadata.get('fps', 30)
+        frame_interval = video_metadata.get('frame_interval', 7)  # Every 7th frame from original
+        
+        # Set downloads path
+        if downloads_path is None:
+            downloads_path = os.path.expanduser("~/Downloads")
+        
+        # Create output filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_filename = f"segmented_video_{video_id}_{timestamp}.mp4"
+        output_path = os.path.join(downloads_path, output_filename)
+        
+        # Ensure downloads directory exists
+        os.makedirs(downloads_path, exist_ok=True)
+        
+        # Get frames that were actually analyzed
+        analyzed_frames = analysis_results.get('frames', [])
+        if not analyzed_frames:
+            print("No analyzed frames found")
+            return None
+        
+        print(f"Creating video from {len(analyzed_frames)} analyzed frames...")
+        
+        # Create video writer
+        first_frame_info = get_video_frame(video_id, analyzed_frames[0]['frame_number'])
+        if not first_frame_info:
+            print("Could not get first frame info")
+            return None
+        
+        # Get frame dimensions from the first frame
+        with Image.open(first_frame_info['path']) as img:
+            width, height = img.size
+        
+        # Calculate output frame rate
+        # Original video fps / frame_interval gives us the base rate for extracted frames
+        # Then we need to account for the analysis frame interval
+        base_extracted_fps = original_fps / frame_interval
+        
+        # Use fourcc for MP4
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(output_path, fourcc, base_extracted_fps, (width, height))
+        
+        if not out.isOpened():
+            print(f"Failed to open video writer for {output_path}")
+            return None
+        
+        print(f"Video writer initialized: {width}x{height} @ {base_extracted_fps} fps")
+        
+        # Initialize color tracker for consistent colors across frames
+        color_tracker = ColorTracker(distance_threshold=50)  # 50 pixels threshold
+        print(f"Initialized color tracker with {len(color_tracker.available_colors)} available colors")
+        
+        # Process each analyzed frame
+        for i, frame_data in enumerate(analyzed_frames):
+            frame_number = frame_data['frame_number']
+            
+            try:
+                # Get the original frame
+                frame_info = get_video_frame(video_id, frame_number)
+                if not frame_info:
+                    print(f"Could not load frame {frame_number}")
+                    continue
+                
+                frame_path = frame_info['path']
+                
+                # Generate segmented visualization for this frame (without labels for clean output)
+                segmented_frame = create_clean_segmented_frame(frame_path, frame_data, color_tracker, i)
+                
+                if segmented_frame is not None:
+                    # Convert from RGB to BGR for OpenCV
+                    frame_bgr = cv2.cvtColor(segmented_frame, cv2.COLOR_RGB2BGR)
+                    
+                    # Write frame to video
+                    out.write(frame_bgr)
+                    
+                    if (i + 1) % 10 == 0:
+                        print(f"Processed {i + 1}/{len(analyzed_frames)} frames...")
+                else:
+                    print(f"Failed to create segmented frame for frame {frame_number}")
+                    
+            except Exception as e:
+                print(f"Error processing frame {frame_number} for video: {e}")
+                continue
+        
+        # Release video writer
+        out.release()
+        
+        print(f"Video created successfully: {output_path}")
+        return output_path
+        
+    except Exception as e:
+        print(f"Error creating segmented video: {e}")
+        return None
+
+
+def create_clean_segmented_frame(frame_path, frame_data, color_tracker=None, frame_idx=0):
+    """
+    Create a clean segmented frame without labels for video output
+    
+    Args:
+        frame_path: Path to the original frame
+        frame_data: Analysis data for this frame
+        color_tracker: ColorTracker instance for consistent colors across frames
+        frame_idx: Current frame index for tracking
+    
+    Returns:
+        RGB numpy array of the segmented frame or None if failed
+    """
+    try:
+        # Load the original frame
+        original_image = cv2.imread(frame_path)
+        original_rgb = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
+        H, W = original_rgb.shape[:2]
+        
+        # Re-run segmentation for this frame to get clean masks
+        sam_model.get_image_embedding(frame_path)
+        original_size = (W, H)
+        
+        # Use current parallel config for consistency
+        kept_masks, kept_boxes, kept_areas = parallel_grid_segmentation(
+            sam_model=sam_model,
+            filepath=frame_path,
+            original_size=original_size,
+            target_points=parallel_config['target_points'],
+            max_masks=parallel_config['max_masks'],
+            min_area_frac=0.001,
+            nms_box_thresh=0.7,
+            dup_mask_iou_thresh=0.5,
+            max_workers=parallel_config['max_workers'],
+            batch_size=parallel_config['batch_size']
+        )
+        
+        if len(kept_masks) == 0:
+            # Return original frame if no masks found
+            return original_rgb
+        
+        # Create clean segmented visualization (no labels)
+        final_image = np.zeros((H, W, 4), dtype=np.uint8)
+        final_image[:, :, :3] = original_rgb
+        final_image[:, :, 3] = 255
+        
+        # Sort by area (largest first) for consistent visualization
+        order = np.argsort(-np.array(kept_areas))
+        
+        # Cleanup old tracked objects if color_tracker is available
+        if color_tracker:
+            color_tracker.cleanup_old_objects(frame_idx)
+        
+        # Apply mask overlays with consistent colors
+        for i, k in enumerate(order[:min(len(order), parallel_config['max_masks'])]):
+            mask = kept_masks[k]
+            
+            # Calculate mask center for color tracking
+            ys, xs = np.where(mask > 0)
+            if len(xs) > 0 and len(ys) > 0:
+                center_x = int(np.mean(xs))
+                center_y = int(np.mean(ys))
+                center = (center_x, center_y)
+                
+                # Get consistent color for this center position
+                if color_tracker:
+                    color = color_tracker.get_color_for_center(center, frame_idx)
+                    if frame_idx < 3:  # Log first few frames for debugging
+                        print(f"Frame {frame_idx}, Object {i}: center=({center_x},{center_y}), color={color}")
+                else:
+                    # Fallback to static colors if no tracker
+                    fallback_colors = [
+                        [255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0],
+                        [255, 0, 255], [0, 255, 255], [255, 128, 0], [128, 0, 255],
+                        [0, 128, 255], [255, 128, 128]
+                    ]
+                    color = fallback_colors[i % len(fallback_colors)]
+            else:
+                # No valid center found, use fallback color
+                color = [128, 128, 128]  # Gray for invalid masks
+            overlay = np.zeros((H, W, 4), dtype=np.uint8)
+            overlay[:, :, 0] = color[0]
+            overlay[:, :, 1] = color[1]
+            overlay[:, :, 2] = color[2]
+            overlay[:, :, 3] = 128  # 50% alpha
+            overlay[:, :, 3] = (overlay[:, :, 3] * mask).astype(np.uint8)
+            
+            alpha = overlay[:, :, 3:4].astype(np.float32) / 255.0
+            alpha = np.repeat(alpha, 3, axis=2)
+            final_image[:, :, :3] = (
+                final_image[:, :, :3] * (1 - alpha) + overlay[:, :, :3] * alpha
+            ).astype(np.uint8)
+        
+        # Return RGB array (drop alpha channel)
+        return final_image[:, :, :3]
+        
+    except Exception as e:
+        print(f"Error creating clean segmented frame: {e}")
+        return None
+
+
 @app.route('/api/analyze_video', methods=['POST'])
 def analyze_video():
-    """Analyze video frames at configurable intervals with depth maps, segmentation, and classification"""
+    """Analyze every 30th frame of a video with depth maps, segmentation, and classification"""
     try:
         data = request.get_json()
         video_id = data.get('video_id')
         frame_interval = data.get('frame_interval', 30)  # Default to every 30th frame
         
-        # Validate frame_interval
-        if not isinstance(frame_interval, int) or frame_interval < 1 or frame_interval > 1000:
-            frame_interval = 30  # Reset to safe default
-            
         print(f"Video analysis request: video_id={video_id}, frame_interval={frame_interval}")
         
         if not video_id:
@@ -2504,16 +2779,10 @@ def analyze_video():
         if extracted_frames == 0:
             return jsonify({'error': 'No extracted frames found in video'}), 400
         
-        # Calculate frames to process from the extracted frames
+        # Calculate frames to process from the extracted frames (every 30th frame from extracted frames)
+        # So if we have frames 0-106 (107 frames), we want frames 0, 30, 60, 90
         frames_to_process = list(range(0, extracted_frames, frame_interval))
         total_frames_to_process = len(frames_to_process)
-        
-        # Safeguard: Limit maximum frames to process (to prevent overload)
-        MAX_FRAMES_TO_PROCESS = 200
-        if total_frames_to_process > MAX_FRAMES_TO_PROCESS:
-            frames_to_process = frames_to_process[:MAX_FRAMES_TO_PROCESS]
-            total_frames_to_process = len(frames_to_process)
-            print(f"⚠️  Limited to {MAX_FRAMES_TO_PROCESS} frames to prevent overload")
         
         print(f"Processing {total_frames_to_process} frames from {extracted_frames} extracted frames")
         print(f"Frame indices to process: {frames_to_process}")
@@ -2525,7 +2794,7 @@ def analyze_video():
             'video_id': video_id,
             'total_extracted_frames': extracted_frames,
             'frames_processed': total_frames_to_process,
-            'analysis_frame_interval': frame_interval,
+            'frame_interval': frame_interval,
             'frames': [],
             'processing_times': {
                 'total_time': 0,
@@ -2630,6 +2899,21 @@ def analyze_video():
             print("Supabase not available - skipping report creation")
             analysis_results['report_id'] = None
         
+        # Create segmented video from analyzed frames
+        try:
+            print("Creating segmented video from analyzed frames...")
+            video_path = create_segmented_video_from_frames(video_id, analysis_results)
+            if video_path:
+                analysis_results['segmented_video_path'] = video_path
+                analysis_results['segmented_video_filename'] = os.path.basename(video_path)
+                print(f"Segmented video created: {video_path}")
+            else:
+                print("Failed to create segmented video")
+                analysis_results['segmented_video_path'] = None
+        except Exception as e:
+            print(f"Error creating segmented video: {e}")
+            analysis_results['segmented_video_path'] = None
+        
         return jsonify(analysis_results)
         
     except Exception as e:
@@ -2637,6 +2921,35 @@ def analyze_video():
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/download_segmented_video/<video_id>')
+def download_segmented_video(video_id):
+    """Download the segmented video for a specific video ID"""
+    try:
+        # Check if we have analysis results for this video
+        global video_analysis_results
+        if video_id not in video_analysis_results:
+            return jsonify({'error': 'Video analysis not found'}), 404
+        
+        analysis_results = video_analysis_results[video_id]
+        video_path = analysis_results.get('segmented_video_path')
+        
+        if not video_path or not os.path.exists(video_path):
+            return jsonify({'error': 'Segmented video not found'}), 404
+        
+        # Get the filename for download
+        filename = analysis_results.get('segmented_video_filename', f'segmented_video_{video_id}.mp4')
+        
+        return send_file(
+            video_path,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='video/mp4'
+        )
+        
+    except Exception as e:
+        print(f"Error downloading segmented video: {e}")
+        return jsonify({'error': 'Failed to download video'}), 500
 
 @app.route('/static/<path:filename>')
 def static_files(filename):

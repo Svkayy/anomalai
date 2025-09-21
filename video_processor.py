@@ -45,7 +45,7 @@ class VideoProcessor:
             print(f"Video info: {total_frames} frames, {fps:.2f} FPS, {duration:.2f}s duration")
             
             # Use fixed frame interval of 7 for consistent sampling
-            frame_interval = 7
+            frame_interval = 4
             # Calculate how many frames we'll actually extract
             actual_frames = total_frames // frame_interval
             
