@@ -2152,7 +2152,7 @@ RULES:
                 "video_id": video_id,
                 "total_frames": video_metadata.get('total_frames', 0),
                 "extracted_frames": video_metadata.get('extracted_frames', 0),
-                "frame_interval": video_metadata.get('frame_interval', 7),
+                "extraction_frame_interval": video_metadata.get('frame_interval', 7),  # Interval used during video extraction
                 "duration_seconds": video_metadata.get('duration_seconds', 0),
                 "device_type": "smart glasses",
                 "analysis_timestamp": time.time()
@@ -2476,12 +2476,16 @@ def get_formal_report(formal_report_id):
 
 @app.route('/api/analyze_video', methods=['POST'])
 def analyze_video():
-    """Analyze every 30th frame of a video with depth maps, segmentation, and classification"""
+    """Analyze video frames at configurable intervals with depth maps, segmentation, and classification"""
     try:
         data = request.get_json()
         video_id = data.get('video_id')
         frame_interval = data.get('frame_interval', 30)  # Default to every 30th frame
         
+        # Validate frame_interval
+        if not isinstance(frame_interval, int) or frame_interval < 1 or frame_interval > 1000:
+            frame_interval = 30  # Reset to safe default
+            
         print(f"Video analysis request: video_id={video_id}, frame_interval={frame_interval}")
         
         if not video_id:
@@ -2500,10 +2504,16 @@ def analyze_video():
         if extracted_frames == 0:
             return jsonify({'error': 'No extracted frames found in video'}), 400
         
-        # Calculate frames to process from the extracted frames (every 30th frame from extracted frames)
-        # So if we have frames 0-106 (107 frames), we want frames 0, 30, 60, 90
+        # Calculate frames to process from the extracted frames
         frames_to_process = list(range(0, extracted_frames, frame_interval))
         total_frames_to_process = len(frames_to_process)
+        
+        # Safeguard: Limit maximum frames to process (to prevent overload)
+        MAX_FRAMES_TO_PROCESS = 200
+        if total_frames_to_process > MAX_FRAMES_TO_PROCESS:
+            frames_to_process = frames_to_process[:MAX_FRAMES_TO_PROCESS]
+            total_frames_to_process = len(frames_to_process)
+            print(f"⚠️  Limited to {MAX_FRAMES_TO_PROCESS} frames to prevent overload")
         
         print(f"Processing {total_frames_to_process} frames from {extracted_frames} extracted frames")
         print(f"Frame indices to process: {frames_to_process}")
@@ -2515,7 +2525,7 @@ def analyze_video():
             'video_id': video_id,
             'total_extracted_frames': extracted_frames,
             'frames_processed': total_frames_to_process,
-            'frame_interval': frame_interval,
+            'analysis_frame_interval': frame_interval,
             'frames': [],
             'processing_times': {
                 'total_time': 0,

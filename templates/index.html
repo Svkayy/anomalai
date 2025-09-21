@@ -1658,10 +1658,23 @@
         </div>
                 
                 <div class="control-group" id="videoAnalysisSection" style="display: none;">
-                    <button class="btn btn-info" id="videoAnalysisBtn" onclick="analyzeVideo()">
-                        🎬 Analyze Video (Every 30th Extracted Frame)
-                    </button>
-                    <small class="text-muted">Process every 30th frame from the extracted frames with depth maps, segmentation, and classification</small>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <label for="frameInterval" style="margin: 0; font-weight: 500;">Frame Interval:</label>
+                        <select id="frameInterval" style="padding: 5px 10px; border: 1px solid #ddd; border-radius: 4px; background: white;">
+                            <option value="1">Every Frame (1:1)</option>
+                            <option value="5">Every 5th Frame (1:5)</option>
+                            <option value="10">Every 10th Frame (1:10)</option>
+                            <option value="15">Every 15th Frame (1:15)</option>
+                            <option value="20">Every 20th Frame (1:20)</option>
+                            <option value="30" selected>Every 30th Frame (1:30)</option>
+                            <option value="50">Every 50th Frame (1:50)</option>
+                            <option value="100">Every 100th Frame (1:100)</option>
+                        </select>
+                        <button class="btn btn-info" id="videoAnalysisBtn" onclick="analyzeVideo()">
+                            🎬 Analyze Video
+                        </button>
+                    </div>
+                    <small class="text-muted">Process frames from the extracted video with depth maps, segmentation, and classification. Lower intervals = more frames analyzed.</small>
                 </div>
                 <div class="control-group">
                     <button class="btn btn-info" id="extractTextBtn" onclick="extractText()" disabled>
@@ -3377,6 +3390,9 @@ const depthCtx = depthCanvas.getContext('2d');
             // Reset progress
             updateProgress(0, 0, 0, 0, 0);
             
+            // Get selected frame interval
+            const frameInterval = parseInt(document.getElementById('frameInterval').value);
+            
             // Start analysis
             fetch('/api/analyze_video', {
                 method: 'POST',
@@ -3385,7 +3401,7 @@ const depthCtx = depthCanvas.getContext('2d');
                 },
                 body: JSON.stringify({
                     video_id: currentVideoId,
-                    frame_interval: 30
+                    frame_interval: frameInterval
                 })
             })
             .then(response => response.json())
