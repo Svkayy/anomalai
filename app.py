@@ -26,6 +26,7 @@ from supabase_database import supabase_db_manager, parse_anomalai_observations, 
 from rag_system import generate_formal_safety_report, is_rag_available
 import google.generativeai as genai
 from geometry import mask_to_box, box_area, box_iou, mask_iou, remove_small_regions
+from vocabulary import generate_workplace_vocabulary
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -396,42 +397,6 @@ def process_single_frame_analysis(frame_path, frame_number):
         print(f"Error processing frame {frame_number}: {e}")
         return None
 
-def generate_workplace_vocabulary():
-    """
-    Generate simple workplace item vocabulary for object identification.
-    Returns a list of basic workplace items for object classification.
-    """
-    # Simple workplace items for identification
-    WORKPLACE_ITEMS = [
-        # Furniture & Workspace
-        "chair", "desk", "table", "floor", "wall", "ceiling", "door", "window",
-        "shelf", "cabinet", "counter",
-        
-        # Tools & Equipment
-        "unmanned ladder", "unsecured tools", "unsecured hammer", "unsecured screwdriver", 
-        
-        # Electrical & Utilities
-        "open electrical wiring", "loose extension cord", "outlet", "switch",
-        "light", "fan",
-        
-        # Construction Materials
-        "steel", "wood", "pipe", "insulation",
-        
-        # Safety & Barriers
-        # "safety equipment", "helmet", "gloves", "goggles", "vest", "barrier",
-        # "handrail", "guardrail", "sign", "marking", "tape", "rope",
-        
-        # Storage & Containers
-        "box",
-        
-        # Machinery & Vehicles
-        "machinery", "equipment", "scaffolding", "platform",
-        
-        # General Items
-        "debris", "clutter", "open trash", "material", "supplies",
-    ]
-    
-    return WORKPLACE_ITEMS
 
 def extract_mask_coordinates_and_depth(mask, image_width, image_height, depth_map=None, depth_colored=None):
     """
