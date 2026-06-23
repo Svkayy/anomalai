@@ -16,4 +16,7 @@ supabase==2.3.4
 python-dotenv==1.0.0
 langchain-community
 langchain-ollama
-langchain-core 
+langchain-core
+coremltools
+imageio
+imageio-ffmpeg
