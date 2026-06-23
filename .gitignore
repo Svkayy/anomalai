@@ -178,3 +178,4 @@ cython_debug/
 !/models/.gitkeep
 coreml-sam2.1-large/*
 uploads/*
+.venv/
