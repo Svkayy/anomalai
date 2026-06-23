@@ -179,3 +179,9 @@ cython_debug/
 coreml-sam2.1-large/*
 uploads/*
 .venv/
+uploads/
+.DS_Store
+
+# demo proof assets (override the *.png ignore above)
+!docs/demo/
+!docs/demo/*.png
