@@ -41,7 +41,7 @@ try:
     
     RAG_AVAILABLE = True
     
-except ImportError as e:
+except Exception as e:
     print(f"RAG system dependencies not available: {e}")
     RAG_AVAILABLE = False
     gemini_model = None

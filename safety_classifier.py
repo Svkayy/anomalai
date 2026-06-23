@@ -6,6 +6,16 @@ Uses zero-shot classification to categorize objects as safe or unsafe
 from transformers import pipeline
 import logging
 
+
+def is_dangerous(dangerous_score: float, alpha: float = 0.05) -> bool:
+    """
+    Pure threshold decision: return True when dangerous_score >= (1.0 - alpha).
+
+    Extracted so it can be unit-tested without loading any ML model.
+    """
+    return dangerous_score >= (1.0 - alpha)
+
+
 class SafetyClassifier:
     def __init__(self):
         """Initialize the zero-shot classification pipeline"""
@@ -71,17 +81,17 @@ class SafetyClassifier:
             classified_objects = []
             for i, obj in enumerate(objects_data):
                 dangerous_score = safety_scores[i]
-                is_dangerous = dangerous_score >= (1.0 - alpha)
+                _is_dangerous = is_dangerous(dangerous_score, alpha)
                 
                 # Add safety information to the object
                 obj_with_safety = obj.copy()
                 obj_with_safety["safety"] = {
-                    "is_dangerous": is_dangerous,
-                    "is_safe": not is_dangerous,  # Add is_safe for compatibility
+                    "is_dangerous": _is_dangerous,
+                    "is_safe": not _is_dangerous,  # Add is_safe for compatibility
                     "dangerous_score": round(dangerous_score, 3),
                     "safe_score": round(1.0 - dangerous_score, 3),
                     "confidence": round(max(dangerous_score, 1.0 - dangerous_score), 3),
-                    "classification": "dangerous" if is_dangerous else "safe"  # Add classification field
+                    "classification": "dangerous" if _is_dangerous else "safe"  # Add classification field
                 }
                 classified_objects.append(obj_with_safety)
             
@@ -124,15 +134,15 @@ class SafetyClassifier:
             candidates_labels = ["dangerous", "safe"]
             result = self.pipe(label, candidates_labels)
             dangerous_score = result["scores"][0]
-            is_dangerous = dangerous_score >= (1.0 - alpha)
-            
+            _is_dangerous = is_dangerous(dangerous_score, alpha)
+
             return {
-                "is_dangerous": is_dangerous,
-                "is_safe": not is_dangerous,  # Add is_safe for compatibility
+                "is_dangerous": _is_dangerous,
+                "is_safe": not _is_dangerous,  # Add is_safe for compatibility
                 "dangerous_score": round(dangerous_score, 3),
                 "safe_score": round(1.0 - dangerous_score, 3),
                 "confidence": round(max(dangerous_score, 1.0 - dangerous_score), 3),
-                "classification": "dangerous" if is_dangerous else "safe"  # Add classification field
+                "classification": "dangerous" if _is_dangerous else "safe"  # Add classification field
             }
         except Exception as e:
             print(f"Error classifying single object '{label}': {e}")
