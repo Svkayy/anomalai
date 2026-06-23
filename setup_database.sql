@@ -10,6 +10,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE TABLE IF NOT EXISTS public.reports (
     id bigserial NOT NULL,
     report_id text NOT NULL,
+    video_id text,
     video_duration double precision NOT NULL,
     video_captured_at timestamp with time zone NOT NULL,
     video_device_type text NOT NULL,

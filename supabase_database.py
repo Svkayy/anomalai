@@ -134,7 +134,10 @@ class SupabaseDatabaseManager:
             raise Exception("Supabase client not available")
         
         try:
-            # Prepare update data — always write to observations column directly
+            # Intentional partial update: only refresh the five analysis-result columns.
+            # video_id, video_duration, video_captured_at, video_device_type, and report_id
+            # are set at creation time and must not be overwritten here.
+            # All five columns below exist in the reports table (see setup_database.sql).
             update_data = {
                 "total_observations": observations_data.get('total_observations', 0),
                 "low": observations_data.get('low', 0),
