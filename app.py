@@ -10,7 +10,7 @@ from PIL import Image
 import io
 import cv2
 import numpy as np
-from script import SAM2, Point, BoundingBox
+from script import SAM2, Point, BoundingBox, model_paths
 import json
 import zipfile
 import tempfile
@@ -25,6 +25,33 @@ import requests
 from supabase_database import supabase_db_manager, parse_anomalai_observations, parse_anomalai_structured_data
 from rag_system import generate_formal_safety_report, is_rag_available
 import google.generativeai as genai
+from geometry import mask_to_box, box_area, box_iou, mask_iou, remove_small_regions
+from vocabulary import generate_workplace_vocabulary
+import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+logger = logging.getLogger("anomalai")
+
+def get_font(size: int):
+    from PIL import ImageFont
+    for path in ("/System/Library/Fonts/Arial.ttf",
+                 "/System/Library/Fonts/Supplemental/Arial.ttf",
+                 "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"):
+        try:
+            return ImageFont.truetype(path, size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
+
+def validate_bbox(coords, width, height):
+    try:
+        x0, y0, x1, y1 = (int(round(float(c))) for c in coords)
+    except (TypeError, ValueError):
+        raise ValueError("bbox must be four numbers")
+    x0, x1 = sorted((max(0, min(x0, width)), max(0, min(x1, width))))
+    y0, y1 = sorted((max(0, min(y0, height)), max(0, min(y1, height))))
+    if x1 <= x0 or y1 <= y0:
+        raise ValueError("bbox has zero area after clamping")
+    return x0, y0, x1, y1
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -73,15 +100,16 @@ def initialize_sam():
     global sam_model
     try:
         sam_model = SAM2()
+        enc, prompt, dec = model_paths()
         sam_model.load_models(
-            image_encoder_path="./models/SAM2_1SmallImageEncoderFLOAT16.mlpackage",
-            prompt_encoder_path="./models/SAM2_1SmallPromptEncoderFLOAT16.mlpackage",
-            mask_decoder_path="./models/SAM2_1SmallMaskDecoderFLOAT16.mlpackage",
+            image_encoder_path=enc,
+            prompt_encoder_path=prompt,
+            mask_decoder_path=dec,
         )
-        print("SAM2 model loaded successfully")
+        logger.info("SAM2 model loaded successfully")
         return True
     except Exception as e:
-        print(f"Error loading SAM2 model: {e}")
+        logger.error(f"Error loading SAM2 model: {e}")
         return False
 
 def initialize_depth():
@@ -89,10 +117,10 @@ def initialize_depth():
     global depth_pipe
     try:
         depth_pipe = pipeline(task="depth-estimation", model="LiheYoung/depth-anything-small-hf", device="cpu")
-        print("Depth estimation pipeline loaded successfully")
+        logger.info("Depth estimation pipeline loaded successfully")
         return True
     except Exception as e:
-        print(f"Error loading depth pipeline: {e}")
+        logger.error(f"Error loading depth pipeline: {e}")
         return False
 
 def initialize_clip():
@@ -114,10 +142,12 @@ def initialize_gemini():
         # Configure Gemini API
         genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
         
-        # Initialize the model
-        gemini_model = genai.GenerativeModel('gemini-1.5-flash')
-        
-        print("Gemini model initialized successfully")
+        # Initialize the model. Model name is env-configurable so it can be
+        # updated without code changes as Google rotates model availability.
+        model_name = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash-lite')
+        gemini_model = genai.GenerativeModel(model_name)
+
+        logger.info(f"Gemini model initialized successfully ({model_name})")
         return True
         
     except Exception as e:
@@ -133,38 +163,6 @@ import gc
 from transformers import pipeline
 import torch
 import clip
-
-def mask_to_box(mask: np.ndarray):
-    ys, xs = np.where(mask > 0)
-    if len(xs) == 0 or len(ys) == 0:
-        return None  # empty
-    return float(xs.min()), float(ys.min()), float(xs.max()), float(ys.max())
-
-def box_area(box):
-    x1, y1, x2, y2 = box
-    w = max(0.0, x2 - x1 + 1.0)
-    h = max(0.0, y2 - y1 + 1.0)
-    return w * h
-
-def box_iou(a, b):
-    ax1, ay1, ax2, ay2 = a
-    bx1, by1, bx2, by2 = b
-    ix1, iy1 = max(ax1, bx1), max(ay1, by1)
-    ix2, iy2 = min(ax2, bx2), min(ay2, by2)
-    iw = max(0.0, ix2 - ix1 + 1.0)
-    ih = max(0.0, iy2 - iy1 + 1.0)
-    inter = iw * ih
-    if inter <= 0:
-        return 0.0
-    ua = box_area(a) + box_area(b) - inter
-    return inter / ua if ua > 0 else 0.0
-
-def mask_iou(a_mask: np.ndarray, b_mask: np.ndarray):
-    a = a_mask.astype(bool)
-    b = b_mask.astype(bool)
-    inter = np.count_nonzero(a & b)
-    union = np.count_nonzero(a | b)
-    return (inter / union) if union > 0 else 0.0
 
 def prepare_text_features(labels):
     """Prepare text features for CLIP classification."""
@@ -427,42 +425,6 @@ def process_single_frame_analysis(frame_path, frame_number):
         print(f"Error processing frame {frame_number}: {e}")
         return None
 
-def generate_workplace_vocabulary():
-    """
-    Generate simple workplace item vocabulary for object identification.
-    Returns a list of basic workplace items for object classification.
-    """
-    # Simple workplace items for identification
-    WORKPLACE_ITEMS = [
-        # Furniture & Workspace
-        "chair", "desk", "table", "floor", "wall", "ceiling", "door", "window",
-        "shelf", "cabinet", "counter",
-        
-        # Tools & Equipment
-        "unmanned ladder", "unsecured tools", "unsecured hammer", "unsecured screwdriver", 
-        
-        # Electrical & Utilities
-        "open electrical wiring", "loose extension cord", "outlet", "switch",
-        "light", "fan",
-        
-        # Construction Materials
-        "steel", "wood", "pipe", "insulation",
-        
-        # Safety & Barriers
-        # "safety equipment", "helmet", "gloves", "goggles", "vest", "barrier",
-        # "handrail", "guardrail", "sign", "marking", "tape", "rope",
-        
-        # Storage & Containers
-        "box",
-        
-        # Machinery & Vehicles
-        "machinery", "equipment", "scaffolding", "platform",
-        
-        # General Items
-        "debris", "clutter", "open trash", "material", "supplies",
-    ]
-    
-    return WORKPLACE_ITEMS
 
 def extract_mask_coordinates_and_depth(mask, image_width, image_height, depth_map=None, depth_colored=None):
     """
@@ -553,35 +515,6 @@ def extract_mask_coordinates_and_depth(mask, image_width, image_height, depth_ma
         "center_y": int(center_y),
         "depth_color": depth_color
     }
-
-
-def remove_small_regions(mask: np.ndarray, min_region_area: int = 0):
-    """
-    Removes very small connected components and fills very small holes.
-    Works on boolean/binary mask.
-    """
-    m = (mask > 0).astype(np.uint8)
-
-    # Remove small foreground components
-    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(m, connectivity=4)
-    cleaned = np.zeros_like(m)
-    for i in range(1, num_labels):
-        if stats[i, cv2.CC_STAT_AREA] >= min_region_area:
-            cleaned[labels == i] = 1
-
-    # Fill small holes by inverting and removing small components
-    inv = (1 - cleaned).astype(np.uint8)
-    num_labels_h, labels_h, stats_h, _ = cv2.connectedComponentsWithStats(inv, connectivity=4)
-    holes = np.zeros_like(inv)
-    h_keep = np.ones(num_labels_h, dtype=bool)
-    h_keep[0] = True  # background stays
-    for i in range(1, num_labels_h):
-        if stats_h[i, cv2.CC_STAT_AREA] < min_region_area:
-            # this small background region is a hole; fill it
-            holes[labels_h == i] = 1
-            h_keep[i] = False
-    filled = np.clip(cleaned + holes, 0, 1)
-    return filled.astype(np.uint8)
 
 
 def process_single_point(point_data):
@@ -944,13 +877,19 @@ def segment_image():
             y1 = float(bbox_data['y1'])
             x2 = float(bbox_data['x2'])
             y2 = float(bbox_data['y2'])
-            
-            # Create numpy array box in the format [x1, y1, x2, y2]
-            box = np.array([x1, y1, x2, y2])
-            
+
             # Read the original image
             original_image = cv2.imread(filepath)
             original_height, original_width = original_image.shape[:2]
+
+            # Validate and clamp bbox
+            try:
+                x1, y1, x2, y2 = validate_bbox([x1, y1, x2, y2], original_width, original_height)
+            except ValueError as e:
+                return jsonify({'error': str(e)}), 400
+
+            # Create numpy array box in the format [x1, y1, x2, y2]
+            box = np.array([x1, y1, x2, y2])
             
             # Convert BGR to RGB for SAM2
             image_rgb = cv2.cvtColor(original_image, cv2.COLOR_BGR2RGB)
@@ -1220,34 +1159,30 @@ def segment_image():
                     try:
                         # Try to use a default font, fallback to basic if not available
                         font_size = max(20, min(H, W) // 25)  # Increased text size
-                        try:
-                            from PIL import ImageFont
-                            font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", font_size)
-                        except:
-                            font = ImageFont.load_default()
-                        
+                        font = get_font(font_size)
+
                         # Get text bounding box for outline
                         bbox = draw.textbbox((0, 0), label_text, font=font)
                         text_width = bbox[2] - bbox[0]
                         text_height = bbox[3] - bbox[1]
-                        
+
                         # Position text at center of mask
                         text_x = center_x - text_width // 2
                         text_y = center_y - text_height // 2
-                        
+
                         # Draw outline (black background)
                         outline_width = 2
                         for dx in range(-outline_width, outline_width + 1):
                             for dy in range(-outline_width, outline_width + 1):
                                 if dx*dx + dy*dy <= outline_width*outline_width:
-                                    draw.text((text_x + dx, text_y + dy), label_text, 
+                                    draw.text((text_x + dx, text_y + dy), label_text,
                                             fill=(0, 0, 0), font=font)
-                        
+
                         # Draw main text
                         draw.text((text_x, text_y), label_text, fill=text_color, font=font)
-                        
+
                     except Exception as e:
-                        print(f"Error drawing label for mask {i}: {e}")
+                        logger.warning(f"Error drawing label for mask {i}: {e}")
                         # Fallback: draw simple text without font
                         draw.text((center_x, center_y), label_text, fill=text_color)
 
@@ -1428,34 +1363,30 @@ def segment_video_frame():
                     try:
                         # Try to use a default font, fallback to basic if not available
                         font_size = max(20, min(H, W) // 25)  # Increased text size
-                        try:
-                            from PIL import ImageFont
-                            font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", font_size)
-                        except:
-                            font = ImageFont.load_default()
-                        
+                        font = get_font(font_size)
+
                         # Get text bounding box for outline
                         bbox = draw.textbbox((0, 0), label_text, font=font)
                         text_width = bbox[2] - bbox[0]
                         text_height = bbox[3] - bbox[1]
-                        
+
                         # Position text at center of mask
                         text_x = center_x - text_width // 2
                         text_y = center_y - text_height // 2
-                        
+
                         # Draw outline (black background)
                         outline_width = 2
                         for dx in range(-outline_width, outline_width + 1):
                             for dy in range(-outline_width, outline_width + 1):
                                 if dx*dx + dy*dy <= outline_width*outline_width:
-                                    draw.text((text_x + dx, text_y + dy), label_text, 
+                                    draw.text((text_x + dx, text_y + dy), label_text,
                                             fill=(0, 0, 0), font=font)
-                        
+
                         # Draw main text
                         draw.text((text_x, text_y), label_text, fill=text_color, font=font)
-                        
+
                     except Exception as e:
-                        print(f"Error drawing label for mask {i}: {e}")
+                        logger.warning(f"Error drawing label for mask {i}: {e}")
                         # Fallback: draw simple text without font
                         draw.text((center_x, center_y), label_text, fill=text_color)
 

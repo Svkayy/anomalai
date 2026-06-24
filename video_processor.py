@@ -11,6 +11,7 @@ import os
 import uuid
 from typing import List, Tuple, Optional
 import json
+from settings import get_settings
 
 class VideoProcessor:
     """Handles video processing and frame extraction"""
@@ -19,7 +20,7 @@ class VideoProcessor:
         self.upload_folder = upload_folder
         os.makedirs(upload_folder, exist_ok=True)
     
-    def extract_frames(self, video_path: str, max_frames: int = 100, video_id: str = None) -> List[dict]:
+    def extract_frames(self, video_path: str, max_frames: int = 100, video_id: str = None, frame_interval: int | None = None) -> List[dict]:
         """
         Extract frames from video and save them as images
         
@@ -44,8 +45,9 @@ class VideoProcessor:
             
             print(f"Video info: {total_frames} frames, {fps:.2f} FPS, {duration:.2f}s duration")
             
-            # Use fixed frame interval of 7 for consistent sampling
-            frame_interval = 4
+            # Use configurable frame interval (default from settings)
+            if frame_interval is None:
+                frame_interval = get_settings().frame_interval
             # Calculate how many frames we'll actually extract
             actual_frames = total_frames // frame_interval
             

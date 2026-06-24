@@ -1,0 +1,511 @@
+{
+  "classified_objects": [
+    {
+      "confidence": 0.216,
+      "coordinates": {
+        "center_x": 713,
+        "center_y": 206,
+        "depth_color": "#751b6e",
+        "relative_x": 0.5575,
+        "relative_y": 0.2863,
+        "relative_z": 0.3255
+      },
+      "label": "pipe",
+      "mask_index": 0,
+      "safety": {
+        "classification": "dangerous",
+        "confidence": 0.753,
+        "dangerous_score": 0.753,
+        "is_dangerous": true,
+        "is_safe": false,
+        "safe_score": 0.247
+      }
+    },
+    {
+      "confidence": 0.142,
+      "coordinates": {
+        "center_x": 1191,
+        "center_y": 361,
+        "depth_color": "#d74b3f",
+        "relative_x": 0.9309,
+        "relative_y": 0.5024,
+        "relative_z": 0.5804
+      },
+      "label": "ceiling",
+      "mask_index": 1,
+      "safety": {
+        "classification": "safe",
+        "confidence": 0.65,
+        "dangerous_score": 0.65,
+        "is_dangerous": false,
+        "is_safe": true,
+        "safe_score": 0.35
+      }
+    },
+    {
+      "confidence": 0.452,
+      "coordinates": {
+        "center_x": 475,
+        "center_y": 467,
+        "depth_color": "#c33b4f",
+        "relative_x": 0.3712,
+        "relative_y": 0.6499,
+        "relative_z": 0.5216
+      },
+      "label": "wall",
+      "mask_index": 2,
+      "safety": {
+        "classification": "safe",
+        "confidence": 0.512,
+        "dangerous_score": 0.512,
+        "is_dangerous": false,
+        "is_safe": true,
+        "safe_score": 0.488
+      }
+    },
+    {
+      "confidence": 0.249,
+      "coordinates": {
+        "center_x": 257,
+        "center_y": 663,
+        "depth_color": "#f78410",
+        "relative_x": 0.2015,
+        "relative_y": 0.9217,
+        "relative_z": 0.7294
+      },
+      "label": "wall",
+      "mask_index": 3,
+      "safety": {
+        "classification": "safe",
+        "confidence": 0.512,
+        "dangerous_score": 0.512,
+        "is_dangerous": false,
+        "is_safe": true,
+        "safe_score": 0.488
+      }
+    },
+    {
+      "confidence": 0.187,
+      "coordinates": {
+        "center_x": 1091,
+        "center_y": 367,
+        "depth_color": "#c83f4b",
+        "relative_x": 0.8528,
+        "relative_y": 0.5105,
+        "relative_z": 0.5373
+      },
+      "label": "wall",
+      "mask_index": 4,
+      "safety": {
+        "classification": "safe",
+        "confidence": 0.512,
+        "dangerous_score": 0.512,
+        "is_dangerous": false,
+        "is_safe": true,
+        "safe_score": 0.488
+      }
+    },
+    {
+      "confidence": 0.142,
+      "coordinates": {
+        "center_x": 66,
+        "center_y": 439,
+        "depth_color": "#000004",
+        "relative_x": 0.0517,
+        "relative_y": 0.6109,
+        "relative_z": 0.0
+      },
+      "label": "ceiling",
+      "mask_index": 5,
+      "safety": {
+        "classification": "safe",
+        "confidence": 0.65,
+        "dangerous_score": 0.65,
+        "is_dangerous": false,
+        "is_safe": true,
+        "safe_score": 0.35
+      }
+    },
+    {
+      "confidence": 0.279,
+      "coordinates": {
+        "center_x": 180,
+        "center_y": 223,
+        "depth_color": "#4c0c6b",
+        "relative_x": 0.141,
+        "relative_y": 0.3111,
+        "relative_z": 0.2235
+      },
+      "label": "unsecured screwdriver",
+      "mask_index": 6,
+      "safety": {
+        "classification": "dangerous",
+        "confidence": 0.922,
+        "dangerous_score": 0.922,
+        "is_dangerous": true,
+        "is_safe": false,
+        "safe_score": 0.078
+      }
+    },
+    {
+      "confidence": 0.283,
+      "coordinates": {
+        "center_x": 769,
+        "center_y": 255,
+        "depth_color": "#380962",
+        "relative_x": 0.6015,
+        "relative_y": 0.355,
+        "relative_z": 0.1765
+      },
+      "label": "shelf",
+      "mask_index": 7,
+      "safety": {
+        "classification": "dangerous",
+        "confidence": 0.959,
+        "dangerous_score": 0.959,
+        "is_dangerous": true,
+        "is_safe": false,
+        "safe_score": 0.041
+      }
+    },
+    {
+      "confidence": 0.105,
+      "coordinates": {
+        "center_x": 172,
+        "center_y": 69,
+        "depth_color": "#6c186e",
+        "relative_x": 0.1351,
+        "relative_y": 0.0962,
+        "relative_z": 0.302
+      },
+      "label": "wall",
+      "mask_index": 8,
+      "safety": {
+        "classification": "safe",
+        "confidence": 0.512,
+        "dangerous_score": 0.512,
+        "is_dangerous": false,
+        "is_safe": true,
+        "safe_score": 0.488
+      }
+    },
+    {
+      "confidence": 0.142,
+      "coordinates": {
+        "center_x": 57,
+        "center_y": 53,
+        "depth_color": "#741a6e",
+        "relative_x": 0.0447,
+        "relative_y": 0.0748,
+        "relative_z": 0.3216
+      },
+      "label": "ceiling",
+      "mask_index": 9,
+      "safety": {
+        "classification": "safe",
+        "confidence": 0.65,
+        "dangerous_score": 0.65,
+        "is_dangerous": false,
+        "is_safe": true,
+        "safe_score": 0.35
+      }
+    },
+    {
+      "confidence": 0.14,
+      "coordinates": {
+        "center_x": 243,
+        "center_y": 363,
+        "depth_color": "#4f0d6c",
+        "relative_x": 0.1903,
+        "relative_y": 0.5049,
+        "relative_z": 0.2314
+      },
+      "label": "unsecured hammer",
+      "mask_index": 10,
+      "safety": {
+        "classification": "dangerous",
+        "confidence": 0.822,
+        "dangerous_score": 0.822,
+        "is_dangerous": true,
+        "is_safe": false,
+        "safe_score": 0.178
+      }
+    },
+    {
+      "confidence": 0.098,
+      "coordinates": {
+        "center_x": 750,
+        "center_y": 439,
+        "depth_color": "#1e0c45",
+        "relative_x": 0.5865,
+        "relative_y": 0.6108,
+        "relative_z": 0.1176
+      },
+      "label": "wall",
+      "mask_index": 11,
+      "safety": {
+        "classification": "safe",
+        "confidence": 0.512,
+        "dangerous_score": 0.512,
+        "is_dangerous": false,
+        "is_safe": true,
+        "safe_score": 0.488
+      }
+    },
+    {
+      "confidence": 0.298,
+      "coordinates": {
+        "center_x": 431,
+        "center_y": 98,
+        "depth_color": "#5d126e",
+        "relative_x": 0.3368,
+        "relative_y": 0.1374,
+        "relative_z": 0.2667
+      },
+      "label": "unmanned ladder",
+      "mask_index": 12,
+      "safety": {
+        "classification": "safe",
+        "confidence": 0.563,
+        "dangerous_score": 0.563,
+        "is_dangerous": false,
+        "is_safe": true,
+        "safe_score": 0.437
+      }
+    },
+    {
+      "confidence": 0.142,
+      "coordinates": {
+        "center_x": 123,
+        "center_y": 78,
+        "depth_color": "#6c186e",
+        "relative_x": 0.0963,
+        "relative_y": 0.1092,
+        "relative_z": 0.302
+      },
+      "label": "ceiling",
+      "mask_index": 13,
+      "safety": {
+        "classification": "safe",
+        "confidence": 0.65,
+        "dangerous_score": 0.65,
+        "is_dangerous": false,
+        "is_safe": true,
+        "safe_score": 0.35
+      }
+    },
+    {
+      "confidence": 0.22,
+      "coordinates": {
+        "center_x": 697,
+        "center_y": 122,
+        "depth_color": "#7a1d6d",
+        "relative_x": 0.5453,
+        "relative_y": 0.1705,
+        "relative_z": 0.3373
+      },
+      "label": "ceiling",
+      "mask_index": 14,
+      "safety": {
+        "classification": "safe",
+        "confidence": 0.65,
+        "dangerous_score": 0.65,
+        "is_dangerous": false,
+        "is_safe": true,
+        "safe_score": 0.35
+      }
+    },
+    {
+      "confidence": 0.131,
+      "coordinates": {
+        "center_x": 180,
+        "center_y": 184,
+        "depth_color": "#4a0c6b",
+        "relative_x": 0.1414,
+        "relative_y": 0.2556,
+        "relative_z": 0.2196
+      },
+      "label": "unsecured screwdriver",
+      "mask_index": 15,
+      "safety": {
+        "classification": "dangerous",
+        "confidence": 0.922,
+        "dangerous_score": 0.922,
+        "is_dangerous": true,
+        "is_safe": false,
+        "safe_score": 0.078
+      }
+    },
+    {
+      "confidence": 0.185,
+      "coordinates": {
+        "center_x": 285,
+        "center_y": 81,
+        "depth_color": "#67166e",
+        "relative_x": 0.2234,
+        "relative_y": 0.1131,
+        "relative_z": 0.2902
+      },
+      "label": "ceiling",
+      "mask_index": 16,
+      "safety": {
+        "classification": "safe",
+        "confidence": 0.65,
+        "dangerous_score": 0.65,
+        "is_dangerous": false,
+        "is_safe": true,
+        "safe_score": 0.35
+      }
+    },
+    {
+      "confidence": 0.216,
+      "coordinates": {
+        "center_x": 997,
+        "center_y": 405,
+        "depth_color": "#b43359",
+        "relative_x": 0.7793,
+        "relative_y": 0.5634,
+        "relative_z": 0.4824
+      },
+      "label": "box",
+      "mask_index": 17,
+      "safety": {
+        "classification": "safe",
+        "confidence": 0.685,
+        "dangerous_score": 0.685,
+        "is_dangerous": false,
+        "is_safe": true,
+        "safe_score": 0.315
+      }
+    },
+    {
+      "confidence": 0.132,
+      "coordinates": {
+        "center_x": 693,
+        "center_y": 610,
+        "depth_color": "#d44842",
+        "relative_x": 0.5421,
+        "relative_y": 0.8476,
+        "relative_z": 0.5725
+      },
+      "label": "equipment",
+      "mask_index": 18,
+      "safety": {
+        "classification": "safe",
+        "confidence": 0.69,
+        "dangerous_score": 0.69,
+        "is_dangerous": false,
+        "is_safe": true,
+        "safe_score": 0.31
+      }
+    },
+    {
+      "confidence": 0.219,
+      "coordinates": {
+        "center_x": 513,
+        "center_y": 109,
+        "depth_color": "#5c126e",
+        "relative_x": 0.4009,
+        "relative_y": 0.1516,
+        "relative_z": 0.2627
+      },
+      "label": "unsecured hammer",
+      "mask_index": 19,
+      "safety": {
+        "classification": "dangerous",
+        "confidence": 0.822,
+        "dangerous_score": 0.822,
+        "is_dangerous": true,
+        "is_safe": false,
+        "safe_score": 0.178
+      }
+    },
+    {
+      "confidence": 0.098,
+      "coordinates": {
+        "center_x": 1043,
+        "center_y": 39,
+        "depth_color": "#b3325a",
+        "relative_x": 0.8152,
+        "relative_y": 0.0547,
+        "relative_z": 0.4784
+      },
+      "label": "wall",
+      "mask_index": 20,
+      "safety": {
+        "classification": "safe",
+        "confidence": 0.512,
+        "dangerous_score": 0.512,
+        "is_dangerous": false,
+        "is_safe": true,
+        "safe_score": 0.488
+      }
+    },
+    {
+      "confidence": 0.085,
+      "coordinates": {
+        "center_x": 927,
+        "center_y": 57,
+        "depth_color": "#a02a63",
+        "relative_x": 0.7247,
+        "relative_y": 0.0794,
+        "relative_z": 0.4314
+      },
+      "label": "door",
+      "mask_index": 21,
+      "safety": {
+        "classification": "safe",
+        "confidence": 0.59,
+        "dangerous_score": 0.59,
+        "is_dangerous": false,
+        "is_safe": true,
+        "safe_score": 0.41
+      }
+    },
+    {
+      "confidence": 0.163,
+      "coordinates": {
+        "center_x": 602,
+        "center_y": 307,
+        "depth_color": "#1f0c48",
+        "relative_x": 0.4709,
+        "relative_y": 0.4271,
+        "relative_z": 0.1216
+      },
+      "label": "shelf",
+      "mask_index": 22,
+      "safety": {
+        "classification": "dangerous",
+        "confidence": 0.959,
+        "dangerous_score": 0.959,
+        "is_dangerous": true,
+        "is_safe": false,
+        "safe_score": 0.041
+      }
+    },
+    {
+      "confidence": 0.142,
+      "coordinates": {
+        "center_x": 145,
+        "center_y": 391,
+        "depth_color": "#510e6c",
+        "relative_x": 0.1138,
+        "relative_y": 0.5441,
+        "relative_z": 0.2353
+      },
+      "label": "ceiling",
+      "mask_index": 23,
+      "safety": {
+        "classification": "safe",
+        "confidence": 0.65,
+        "dangerous_score": 0.65,
+        "is_dangerous": false,
+        "is_safe": true,
+        "safe_score": 0.35
+      }
+    }
+  ],
+  "dangerous_count": 7,
+  "safe_count": 17,
+  "total_objects": 24
+}

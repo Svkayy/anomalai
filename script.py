@@ -5,6 +5,24 @@ import cv2
 from dataclasses import dataclass
 from typing import List, Tuple, Optional, Union
 import time
+from settings import get_settings
+
+_MODEL_FILES = {
+    "small": ("SAM2_1SmallImageEncoderFLOAT16.mlpackage",
+              "SAM2_1SmallPromptEncoderFLOAT16.mlpackage",
+              "SAM2_1SmallMaskDecoderFLOAT16.mlpackage"),
+    "large": ("SAM2_1LargeImageEncoderFLOAT16.mlpackage",
+              "SAM2_1LargePromptEncoderFLOAT16.mlpackage",
+              "SAM2_1LargeMaskDecoderFLOAT16.mlpackage"),
+}
+
+def model_paths(models_dir="./models", size=None):
+    import os
+    size = size or get_settings().model_size
+    enc, prompt, dec = _MODEL_FILES[size]
+    return (os.path.join(models_dir, enc),
+            os.path.join(models_dir, prompt),
+            os.path.join(models_dir, dec))
 
 
 @dataclass
@@ -420,13 +438,11 @@ def main():
         sam = SAM2()
 
         # Set to the paths of the CoreML models
+        enc, prompt, dec = model_paths()
         sam.load_models(
-            # image_encoder_path="./models/SAM2_1LargeImageEncoderFLOAT16.mlpackage",
-            # prompt_encoder_path="./models/SAM2_1LargePromptEncoderFLOAT16.mlpackage",
-            # mask_decoder_path="./models/SAM2_1LargeMaskDecoderFLOAT16.mlpackage",
-            image_encoder_path="./models/SAM2_1SmallImageEncoderFLOAT16.mlpackage",
-            prompt_encoder_path="./models/SAM2_1SmallPromptEncoderFLOAT16.mlpackage",
-            mask_decoder_path="./models/SAM2_1SmallMaskDecoderFLOAT16.mlpackage",
+            image_encoder_path=enc,
+            prompt_encoder_path=prompt,
+            mask_decoder_path=dec,
         )
 
         # Set to the path of the image you want to process

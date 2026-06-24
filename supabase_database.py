@@ -12,6 +12,34 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+
+def build_report_row(analysis: dict) -> dict:
+    """
+    Pure function: construct the row dict written to the ``reports`` table.
+
+    Always includes the ``observations`` jsonb column — no runtime column-
+    existence check, no description-column fallback.
+
+    Args:
+        analysis: Dict with any subset of the keys below.  Missing keys
+                  receive safe defaults so callers may pass partial dicts.
+
+    Returns:
+        Dict ready for ``supabase.table('reports').insert()`` or ``.update()``.
+    """
+    return {
+        "video_id": analysis.get("video_id"),
+        "video_duration": analysis.get("video_duration", 0.0),
+        "video_captured_at": analysis.get("video_captured_at"),
+        "video_device_type": analysis.get("video_device_type", "smart glasses"),
+        "total_observations": analysis.get("total_observations", 0),
+        "low": analysis.get("low", 0),
+        "medium": analysis.get("medium", 0),
+        "high": analysis.get("high", 0),
+        "observations": analysis.get("observations", []),
+    }
+
+
 class SupabaseDatabaseManager:
     def __init__(self):
         """Initialize Supabase client"""
@@ -43,23 +71,8 @@ class SupabaseDatabaseManager:
         """Check if Supabase client is available"""
         return self.client is not None
     
-    def has_observations_column(self) -> bool:
-        """Check if observations column exists in the reports table"""
-        if not self.client:
-            return False
-        
-        try:
-            # Try to select the observations column
-            response = self.client.table('reports').select('observations').limit(1).execute()
-            return True
-        except Exception as e:
-            if 'observations' in str(e):
-                return False
-            # Other errors might be temporary, so return True to try
-            return True
-    
-    def create_report(self, video_id: str, video_duration: float, 
-                     video_captured_at: datetime, video_device_type: str = "smart glasses", 
+    def create_report(self, video_id: str, video_duration: float,
+                     video_captured_at: datetime, video_device_type: str = "smart glasses",
                      observations: Optional[Dict] = None) -> str:
         """
         Create a new report entry in the database
@@ -76,31 +89,21 @@ class SupabaseDatabaseManager:
         """
         if not self.client:
             raise Exception("Supabase client not available")
-        
+
         try:
             # Generate unique report ID
             report_id = f"report_{video_id}_{int(datetime.now().timestamp())}"
-            
-            # Prepare data for insertion
-            report_data = {
-                "report_id": report_id,
+
+            # Build row using pure function — always includes observations column
+            report_data = build_report_row({
+                "video_id": video_id,
                 "video_duration": video_duration,
                 "video_captured_at": video_captured_at.isoformat(),
                 "video_device_type": video_device_type,
-                "total_observations": 0,
-                "low": 0,
-                "medium": 0,
-                "high": 0
-            }
-            
-            # Add observations only if provided and column exists
-            if observations is not None and self.has_observations_column():
-                report_data["observations"] = observations
-            elif observations is not None:
-                # Store observations in description column as JSON as a workaround
-                print("Warning: Observations column not available, storing in description column")
-                report_data["description"] = json.dumps(observations, indent=2)
-            
+                "observations": observations if observations is not None else [],
+            })
+            report_data["report_id"] = report_id
+
             # Insert into Supabase
             response = self.client.table('reports').insert(report_data).execute()
             
@@ -131,21 +134,17 @@ class SupabaseDatabaseManager:
             raise Exception("Supabase client not available")
         
         try:
-            # Prepare update data
+            # Intentional partial update: only refresh the five analysis-result columns.
+            # video_id, video_duration, video_captured_at, video_device_type, and report_id
+            # are set at creation time and must not be overwritten here.
+            # All five columns below exist in the reports table (see setup_database.sql).
             update_data = {
                 "total_observations": observations_data.get('total_observations', 0),
                 "low": observations_data.get('low', 0),
                 "medium": observations_data.get('medium', 0),
-                "high": observations_data.get('high', 0)
+                "high": observations_data.get('high', 0),
+                "observations": structured_observations if structured_observations is not None else [],
             }
-            
-            # Add structured observations if provided and column exists
-            if structured_observations is not None and self.has_observations_column():
-                update_data["observations"] = structured_observations
-            elif structured_observations is not None:
-                # Store observations in description column as JSON as a workaround
-                print("Warning: Observations column not available, storing in description column")
-                update_data["description"] = json.dumps(structured_observations, indent=2)
             
             # Update the report
             response = self.client.table('reports').update(update_data).eq('report_id', report_id).execute()
