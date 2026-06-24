@@ -18,7 +18,9 @@ Anomalai ingests images or video from a construction or industrial site and retu
 
 ### Gemini hazard report — live output
 
-From `docs/demo/gemini-hazard-report.json` (real Gemini API call on the scene above):
+![Gemini safety analysis report](docs/demo/gemini-hazard-report.png)
+
+Real Gemini API call (`gemini-3.5-flash`) on the scene above (full output in `docs/demo/gemini-hazard-report.json`):
 
 > - An unsecured ladder is tipping over, causing a worker to fall.
 > - The worker is carrying a bucket while climbing, preventing them from maintaining three points of contact with the ladder.
