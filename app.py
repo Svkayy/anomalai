@@ -142,10 +142,12 @@ def initialize_gemini():
         # Configure Gemini API
         genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
         
-        # Initialize the model
-        gemini_model = genai.GenerativeModel('gemini-1.5-flash')
-        
-        print("Gemini model initialized successfully")
+        # Initialize the model. Model name is env-configurable so it can be
+        # updated without code changes as Google rotates model availability.
+        model_name = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash-lite')
+        gemini_model = genai.GenerativeModel(model_name)
+
+        logger.info(f"Gemini model initialized successfully ({model_name})")
         return True
         
     except Exception as e:
